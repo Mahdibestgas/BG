@@ -1,0 +1,58 @@
+# Production stack: database (never exposed to the internet), API + web app, HTTPS proxy, nightly backups.
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cf13
+      POSTGRES_USER: cf13_owner
+      POSTGRES_PASSWORD: ${OWNER_DB_PW:?set OWNER_DB_PW in .env.production}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cf13_owner -d cf13"]
+      interval: 5s
+      retries: 20
+
+  api:
+    build: .
+    restart: unless-stopped
+    env_file: .env.production
+    environment:
+      DATABASE_URL: postgresql://cf13_owner:${OWNER_DB_PW}@db:5432/cf13
+      DATABASE_APP_URL: postgresql://cf13_app:${APP_DB_PW}@db:5432/cf13
+      CF13_TRUST_PROXY: "1"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      CF13_DOMAIN: ${CF13_DOMAIN:?set CF13_DOMAIN in .env.production}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on:
+      - api
+
+  backup:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      PGPASSWORD: ${OWNER_DB_PW}
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["sh", "-c", "while true; do pg_dump -h db -U cf13_owner -Fc cf13 > /backups/cf13_$$(date +%F).dump; find /backups -name 'cf13_*.dump' -mtime +14 -delete; sleep 86400; done"]
+
+volumes:
+  pgdata:
+  caddy_data:

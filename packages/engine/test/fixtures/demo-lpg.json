@@ -1,0 +1,661 @@
+{
+ "meta": {
+  "name": "Demo plan (from Excel model v2)",
+  "demo": true,
+  "currency": "SAR",
+  "startDate": "2026-11-01",
+  "weeks": 13
+ },
+ "tax": {
+  "vatRate": 0.15,
+  "vatFiling": 1,
+  "vatDueDays": 30,
+  "zakatRate": 0.025,
+  "zakatBase": 120000000,
+  "opexVatShare": 0.62
+ },
+ "scenarios": {
+  "active": "base",
+  "table": {
+   "base": {
+    "volume": 1,
+    "price": 1,
+    "cost": 1
+   },
+   "upside": {
+    "volume": 1.1,
+    "price": 1.02,
+    "cost": 0.98
+   },
+   "downside": {
+    "volume": 0.88,
+    "price": 0.97,
+    "cost": 1.05
+   }
+  }
+ },
+ "tradingDays": 7,
+ "growthPerWeek": 0.004,
+ "seasonality": [
+  0.95,
+  0.95,
+  0.96,
+  0.98,
+  1,
+  1.01,
+  1.02,
+  1.05,
+  1.08,
+  1.1,
+  1.12,
+  1.15,
+  1.18
+ ],
+ "regions": [
+  {
+   "id": "RG1",
+   "ar": "منطقة الرياض",
+   "en": "Riyadh Region"
+  },
+  {
+   "id": "RG2",
+   "ar": "المنطقة الجنوبية",
+   "en": "Southern Region"
+  },
+  {
+   "id": "RG3",
+   "ar": "منطقة القصيم",
+   "en": "Al-Qassim Region"
+  },
+  {
+   "id": "RG4",
+   "ar": "منطقة جدة",
+   "en": "Jeddah Region"
+  }
+ ],
+ "branches": [
+  {
+   "id": "BR01",
+   "no": 1,
+   "regionId": "RG1",
+   "ar": "القدس",
+   "en": "Al-Qudos",
+   "deliveryPerDay": 380,
+   "walkinPerDay": 130,
+   "appShare": 0.48,
+   "rentMonthly": 13500,
+   "headcount": 12,
+   "salaryMonthly": 12500,
+   "active": true
+  },
+  {
+   "id": "BR02",
+   "no": 2,
+   "regionId": "RG1",
+   "ar": "النسيم",
+   "en": "Al-Nassem",
+   "deliveryPerDay": 360,
+   "walkinPerDay": 125,
+   "appShare": 0.42,
+   "rentMonthly": 12500,
+   "headcount": 20,
+   "salaryMonthly": 12500,
+   "active": true
+  },
+  {
+   "id": "BR03",
+   "no": 3,
+   "regionId": "RG1",
+   "ar": "المونسية",
+   "en": "Al-Monseyah",
+   "deliveryPerDay": 345,
+   "walkinPerDay": 118,
+   "appShare": 0.46,
+   "rentMonthly": 12800,
+   "headcount": 16,
+   "salaryMonthly": 10500,
+   "active": true
+  },
+  {
+   "id": "BR04",
+   "no": 4,
+   "regionId": "RG1",
+   "ar": "الشفاء",
+   "en": "Al-Shefa",
+   "deliveryPerDay": 330,
+   "walkinPerDay": 115,
+   "appShare": 0.44,
+   "rentMonthly": 12000,
+   "headcount": 10,
+   "salaryMonthly": 12500,
+   "active": true
+  },
+  {
+   "id": "BR05",
+   "no": 5,
+   "regionId": "RG1",
+   "ar": "الفواز",
+   "en": "Al-Fawaaz",
+   "deliveryPerDay": 300,
+   "walkinPerDay": 105,
+   "appShare": 0.4,
+   "rentMonthly": 11000,
+   "headcount": 6,
+   "salaryMonthly": 10500,
+   "active": true
+  },
+  {
+   "id": "BR06",
+   "no": 6,
+   "regionId": "RG1",
+   "ar": "العارض",
+   "en": "Al-Ared",
+   "deliveryPerDay": 355,
+   "walkinPerDay": 120,
+   "appShare": 0.5,
+   "rentMonthly": 13000,
+   "headcount": 4,
+   "salaryMonthly": 6000,
+   "active": true
+  },
+  {
+   "id": "BR07",
+   "no": 7,
+   "regionId": "RG1",
+   "ar": "القيروان",
+   "en": "Al-Qirawan",
+   "deliveryPerDay": 340,
+   "walkinPerDay": 118,
+   "appShare": 0.52,
+   "rentMonthly": 13200,
+   "headcount": 6,
+   "salaryMonthly": 9000,
+   "active": true
+  },
+  {
+   "id": "BR08",
+   "no": 8,
+   "regionId": "RG1",
+   "ar": "المنصورة",
+   "en": "Al-Mansourah",
+   "deliveryPerDay": 310,
+   "walkinPerDay": 112,
+   "appShare": 0.36,
+   "rentMonthly": 11200,
+   "headcount": 4,
+   "salaryMonthly": 4500,
+   "active": true
+  },
+  {
+   "id": "BR09",
+   "no": 9,
+   "regionId": "RG1",
+   "ar": "اليمامة",
+   "en": "Al-Yamamah",
+   "deliveryPerDay": 295,
+   "walkinPerDay": 108,
+   "appShare": 0.35,
+   "rentMonthly": 10800,
+   "headcount": 4,
+   "salaryMonthly": 9000,
+   "active": true
+  },
+  {
+   "id": "BR10",
+   "no": 10,
+   "regionId": "RG1",
+   "ar": "العقيق",
+   "en": "Al-Aqeeq",
+   "deliveryPerDay": 365,
+   "walkinPerDay": 122,
+   "appShare": 0.55,
+   "rentMonthly": 14500,
+   "headcount": 11,
+   "salaryMonthly": 13600,
+   "active": true
+  },
+  {
+   "id": "BR11",
+   "no": 11,
+   "regionId": "RG1",
+   "ar": "المروج",
+   "en": "Al-Morooj",
+   "deliveryPerDay": 350,
+   "walkinPerDay": 120,
+   "appShare": 0.52,
+   "rentMonthly": 13800,
+   "headcount": 4,
+   "salaryMonthly": 6000,
+   "active": true
+  },
+  {
+   "id": "BR12",
+   "no": 12,
+   "regionId": "RG1",
+   "ar": "الملك فهد",
+   "en": "King Fahed",
+   "deliveryPerDay": 370,
+   "walkinPerDay": 128,
+   "appShare": 0.54,
+   "rentMonthly": 14800,
+   "headcount": 5,
+   "salaryMonthly": 7000,
+   "active": true
+  },
+  {
+   "id": "BR13",
+   "no": 13,
+   "regionId": "RG1",
+   "ar": "الورود",
+   "en": "Al-Worood",
+   "deliveryPerDay": 335,
+   "walkinPerDay": 116,
+   "appShare": 0.5,
+   "rentMonthly": 13000,
+   "headcount": 4,
+   "salaryMonthly": 6000,
+   "active": true
+  },
+  {
+   "id": "BR14",
+   "no": 14,
+   "regionId": "RG1",
+   "ar": "الدرعية",
+   "en": "Al-Deriyah",
+   "deliveryPerDay": 290,
+   "walkinPerDay": 100,
+   "appShare": 0.45,
+   "rentMonthly": 11500,
+   "headcount": 6,
+   "salaryMonthly": 13780,
+   "active": true
+  },
+  {
+   "id": "BR15",
+   "no": 15,
+   "regionId": "RG1",
+   "ar": "اليرموك",
+   "en": "Al-Yarmouk",
+   "deliveryPerDay": 345,
+   "walkinPerDay": 119,
+   "appShare": 0.47,
+   "rentMonthly": 12900,
+   "headcount": 7,
+   "salaryMonthly": 9000,
+   "active": true
+  },
+  {
+   "id": "BR16",
+   "no": 16,
+   "regionId": "RG1",
+   "ar": "النرجس",
+   "en": "Al-Narjes",
+   "deliveryPerDay": 360,
+   "walkinPerDay": 124,
+   "appShare": 0.56,
+   "rentMonthly": 14200,
+   "headcount": 6,
+   "salaryMonthly": 12000,
+   "active": true
+  },
+  {
+   "id": "BR17",
+   "no": 17,
+   "regionId": "RG1",
+   "ar": "البيان",
+   "en": "Al-Bayan",
+   "deliveryPerDay": 320,
+   "walkinPerDay": 110,
+   "appShare": 0.44,
+   "rentMonthly": 12000,
+   "headcount": 8,
+   "salaryMonthly": 9000,
+   "active": true
+  },
+  {
+   "id": "BR18",
+   "no": 18,
+   "regionId": "RG1",
+   "ar": "النمار",
+   "en": "Al-Namar",
+   "deliveryPerDay": 305,
+   "walkinPerDay": 106,
+   "appShare": 0.38,
+   "rentMonthly": 10500,
+   "headcount": 4,
+   "salaryMonthly": 9000,
+   "active": true
+  },
+  {
+   "id": "BR19",
+   "no": 19,
+   "regionId": "RG1",
+   "ar": "العارض 2",
+   "en": "Al-Ared 2",
+   "deliveryPerDay": 315,
+   "walkinPerDay": 108,
+   "appShare": 0.5,
+   "rentMonthly": 12600,
+   "headcount": 5,
+   "salaryMonthly": 9000,
+   "active": true
+  },
+  {
+   "id": "BR20",
+   "no": 20,
+   "regionId": "RG1",
+   "ar": "الياسمين",
+   "en": "Al-Yasmeen",
+   "deliveryPerDay": 355,
+   "walkinPerDay": 121,
+   "appShare": 0.55,
+   "rentMonthly": 14000,
+   "headcount": 4,
+   "salaryMonthly": 6000,
+   "active": true
+  },
+  {
+   "id": "BR21",
+   "no": 21,
+   "regionId": "RG1",
+   "ar": "غبيرا",
+   "en": "Gobeerah",
+   "deliveryPerDay": 275,
+   "walkinPerDay": 95,
+   "appShare": 0.32,
+   "rentMonthly": 10000,
+   "headcount": 6,
+   "salaryMonthly": 12000,
+   "active": true
+  },
+  {
+   "id": "BR22",
+   "no": 22,
+   "regionId": "RG2",
+   "ar": "حائل",
+   "en": "Hail",
+   "deliveryPerDay": 180,
+   "walkinPerDay": 70,
+   "appShare": 0.28,
+   "rentMonthly": 8000,
+   "headcount": 2,
+   "salaryMonthly": 3300,
+   "active": true
+  },
+  {
+   "id": "BR23",
+   "no": 23,
+   "regionId": "RG2",
+   "ar": "حفر العتش",
+   "en": "Hafr Alatash",
+   "deliveryPerDay": 150,
+   "walkinPerDay": 60,
+   "appShare": 0.22,
+   "rentMonthly": 7000,
+   "headcount": 2,
+   "salaryMonthly": 5500,
+   "active": true
+  },
+  {
+   "id": "BR24",
+   "no": 24,
+   "regionId": "RG2",
+   "ar": "أملج",
+   "en": "Amluj",
+   "deliveryPerDay": 110,
+   "walkinPerDay": 45,
+   "appShare": 0.18,
+   "rentMonthly": 6000,
+   "headcount": 1,
+   "salaryMonthly": 3800,
+   "active": true
+  },
+  {
+   "id": "BR25",
+   "no": 25,
+   "regionId": "RG3",
+   "ar": "القصيم السلام",
+   "en": "Al-Qassim Al-Salam",
+   "deliveryPerDay": 250,
+   "walkinPerDay": 90,
+   "appShare": 0.34,
+   "rentMonthly": 9500,
+   "headcount": 13,
+   "salaryMonthly": 22000,
+   "active": true
+  },
+  {
+   "id": "BR26",
+   "no": 26,
+   "regionId": "RG3",
+   "ar": "القصيم حي الروضة",
+   "en": "Al-Qassim Al-Rawda",
+   "deliveryPerDay": 230,
+   "walkinPerDay": 85,
+   "appShare": 0.32,
+   "rentMonthly": 9000,
+   "headcount": 3,
+   "salaryMonthly": 6000,
+   "active": true
+  },
+  {
+   "id": "BR27",
+   "no": 27,
+   "regionId": "RG3",
+   "ar": "القصيم حي الضاحية",
+   "en": "Al-Qassim Al-Dahiah",
+   "deliveryPerDay": 210,
+   "walkinPerDay": 80,
+   "appShare": 0.3,
+   "rentMonthly": 8800,
+   "headcount": 2,
+   "salaryMonthly": 4000,
+   "active": true
+  },
+  {
+   "id": "BR28",
+   "no": 28,
+   "regionId": "RG4",
+   "ar": "جدة - حي الفلاح",
+   "en": "Jeddah - Al-Falah",
+   "deliveryPerDay": 400,
+   "walkinPerDay": 140,
+   "appShare": 0.46,
+   "rentMonthly": 15500,
+   "headcount": 4,
+   "salaryMonthly": 11000,
+   "active": true
+  }
+ ],
+ "skus": [
+  {
+   "id": "SKU1",
+   "en": "11 kg — Iron cylinder",
+   "ar": "أسطوانة حديد ١١ كجم",
+   "mix": 0.52,
+   "price": 28.75,
+   "cost": 14,
+   "openingStock": 95000
+  },
+  {
+   "id": "SKU2",
+   "en": "11 kg — Plastic / composite",
+   "ar": "أسطوانة بلاستيك ١١ كجم",
+   "mix": 0.2,
+   "price": 34.5,
+   "cost": 17.5,
+   "openingStock": 36000
+  },
+  {
+   "id": "SKU3",
+   "en": "5 kg — Iron cylinder",
+   "ar": "أسطوانة حديد ٥ كجم",
+   "mix": 0.16,
+   "price": 16.1,
+   "cost": 7.5,
+   "openingStock": 29000
+  },
+  {
+   "id": "SKU4",
+   "en": "5 kg — Plastic / composite",
+   "ar": "أسطوانة بلاستيك ٥ كجم",
+   "mix": 0.12,
+   "price": 19.55,
+   "cost": 9.5,
+   "openingStock": 22000
+  }
+ ],
+ "accessories": [
+  {
+   "id": "ACC1",
+   "en": "Regulator",
+   "ar": "منظم غاز",
+   "attach": 0.03,
+   "price": 46,
+   "cost": 28
+  },
+  {
+   "id": "ACC2",
+   "en": "Gas hose (1.5 m)",
+   "ar": "خرطوم غاز ١.٥ م",
+   "attach": 0.045,
+   "price": 23,
+   "cost": 13
+  },
+  {
+   "id": "ACC3",
+   "en": "Table-top burner / stove",
+   "ar": "موقد طاولة",
+   "attach": 0.008,
+   "price": 149,
+   "cost": 98
+  },
+  {
+   "id": "ACC4",
+   "en": "New empty cylinder (shell sale)",
+   "ar": "أسطوانة فارغة جديدة",
+   "attach": 0.012,
+   "price": 120.75,
+   "cost": 85
+  }
+ ],
+ "attachMultipliers": {
+  "app": 1.6,
+  "field": 0.45,
+  "store": 1.3
+ },
+ "deliveryFee": {
+  "fee": 5,
+  "chargedShare": 1,
+  "driverShare": 1
+ },
+ "paymentMix": {
+  "app": {
+   "online": 0.55,
+   "pos": 0.3,
+   "cash": 0.15
+  },
+  "field": {
+   "online": 0,
+   "pos": 0.55,
+   "cash": 0.45
+  },
+  "store": {
+   "online": 0,
+   "pos": 0.62,
+   "cash": 0.38
+  }
+ },
+ "fees": {
+  "posPct": 0.0075,
+  "gatewayPct": 0.022,
+  "gatewayFixed": 1,
+  "cashLossPct": 0.002
+ },
+ "settlement": {
+  "online": [
+   0.4,
+   0.6
+  ],
+  "pos": [
+   0.55,
+   0.45
+  ],
+  "cash": [
+   0.85,
+   0.15
+  ]
+ },
+ "openingReceivable": {
+  "amount": 1850000,
+  "schedule": [
+   1
+  ]
+ },
+ "gasko": {
+  "creditWeeks": 2,
+  "advancePct": 0.3,
+  "stockCoverWeeks": 1.2,
+  "openingPayable": 3100000,
+  "openingSchedule": [
+   0.45,
+   0.3,
+   0.15,
+   0.1
+  ]
+ },
+ "payroll": {
+  "driversSeparate": true,
+  "driverHeadcount": 168,
+  "driverMonthly": 2900,
+  "branchBasis": 1,
+  "assumedPerHead": 3400,
+  "hqHeadcount": 30,
+  "hqPerHead": 8200,
+  "regionalOfficeMonthly": 25000,
+  "gosiPct": 0.1175,
+  "eosbPct": 0.0575,
+  "overtimePct": 0.06,
+  "payDay": 27
+ },
+ "fleet": {
+  "trucks": 150,
+  "daysPerWeek": 6.5,
+  "dieselLitresPerDay": 34,
+  "dieselPrice": 1.15,
+  "maintPerTruckMonth": 1250,
+  "insurancePerTruckYear": 4200,
+  "permitsPerTruckYear": 2600,
+  "truckCost": 185000,
+  "truckLifeYears": 7,
+  "dropsPerTruckDay": 70
+ },
+ "overheads": {
+  "utilitiesPerBranchMonth": 1650,
+  "licencesPerBranchYear": 9500,
+  "hqRentMonthly": 95000,
+  "itMonthly": 78000,
+  "marketingPct": 0.012,
+  "otherGAMonthly": 100000,
+  "shellPool": 600000,
+  "shellCost": 95,
+  "shellLifeYears": 12,
+  "shellLossWeekly": 0.0012,
+  "shrinkPct": 0.0035
+ },
+ "financing": {
+  "openingCash": 4200000,
+  "openingVatPayable": 1850000,
+  "openingVatDueDate": null,
+  "facilityLimit": 15000000,
+  "facilityRate": 0.085,
+  "loanMonthly": 450000,
+  "otherCapexMonthly": 300000,
+  "minBuffer": 2500000
+ },
+ "schedules": [],
+ "compat": {
+  "v2": false
+ },
+ "template": "lpg-distribution"
+}

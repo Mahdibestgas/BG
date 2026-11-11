@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+dist
+.git
+.github
+.env
+.env.*
+run
+backups
+*.log
+*.xlsx
+*.xls
+*.csv
+bestgas_plan*.json

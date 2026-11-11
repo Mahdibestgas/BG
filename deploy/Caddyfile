@@ -1,0 +1,9 @@
+# HTTPS is automatic: set CF13_DOMAIN to your domain (its DNS must point at this server).
+{$CF13_DOMAIN} {
+	encode gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+	reverse_proxy api:8990
+}

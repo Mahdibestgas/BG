@@ -1,0 +1,35 @@
+{
+  "name": "@cf13/api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "start": "tsx src/main.ts",
+    "db:migrate": "prisma migrate deploy",
+    "db:harden": "tsx prisma/harden.ts",
+    "test": "tsx --test --test-concurrency=1 test/*.test.ts"
+  },
+  "dependencies": {
+    "@cf13/engine": "*",
+    "@cf13/theme": "*",
+    "@nestjs/common": "11.2.8",
+    "@nestjs/core": "11.2.8",
+    "@nestjs/platform-express": "11.2.8",
+    "@prisma/client": "6.2.1",
+    "cookie-parser": "1.4.7",
+    "dotenv": "16.4.7",
+    "helmet": "8.0.0",
+    "jose": "^6.2.17",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.1"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "1.4.8",
+    "@types/express": "5.0.0",
+    "@types/node": "22.10.2",
+    "prisma": "6.2.1",
+    "tsx": "4.19.2",
+    "typescript": "5.7.2"
+  }
+}

@@ -1,0 +1,171 @@
+// Cash Flow 13 — multi-tenant data model.
+// Every table that holds a company's data carries tenant_id and is protected by
+// PostgreSQL row-level security (prisma/sql/01_security.sql). The only tables
+// without it are `accounts` (a person's sign-in, which may span companies) and
+// `tenants` itself, which has its own policy (a company sees only its own row).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id         String   @id @default(uuid()) @db.Uuid
+  slug       String   @unique
+  name       String
+  nameAr     String?  @map("name_ar")
+  template   String
+  status     String   @default("trial")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  branding    Branding?
+  memberships Membership[]
+  plans       Plan[]
+  audit       AuditEntry[]
+  apiKeys     ApiKey[]
+  invitations Invitation[]
+
+  @@map("tenants")
+}
+
+/// A person's sign-in. One account can belong to several companies.
+model Account {
+  id            String    @id @default(uuid()) @db.Uuid
+  email         String    @unique
+  name          String
+  passwordHash  String    @map("password_hash")
+  failedLogins  Int       @default(0) @map("failed_logins")
+  lockedUntil   DateTime? @map("locked_until")
+  sessionEpoch  Int       @default(0) @map("session_epoch")
+  totpSecret    String?   @map("totp_secret")
+  totpEnabled   Boolean   @default(false) @map("totp_enabled")
+  totpLastStep  Int?      @map("totp_last_step")
+  recoveryCodes Json?     @map("recovery_codes")
+  language      String    @default("en")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  memberships Membership[]
+  resetTokens ResetToken[]
+
+  @@map("accounts")
+}
+
+model Membership {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  accountId String   @map("account_id") @db.Uuid
+  role      String   // owner | finance | viewer
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, accountId])
+  @@map("memberships")
+}
+
+/// The company's look, generated from its logo. Data colours are not stored:
+/// they are fixed for every company.
+model Branding {
+  tenantId  String   @id @map("tenant_id") @db.Uuid
+  logo      Bytes?
+  logoType  String?  @map("logo_type")
+  theme     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("branding")
+}
+
+model Plan {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  name      String
+  status    String   @default("draft") // draft | locked
+  version   Int      @default(1)
+  model     Json
+  createdBy String?  @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("plans")
+}
+
+/// Append-only: the security layer forbids UPDATE and DELETE.
+model AuditEntry {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  actorId   String?  @map("actor_id") @db.Uuid
+  action    String
+  entity    String?
+  entityId  String?  @map("entity_id")
+  changes   Json?
+  at        DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, at])
+  @@map("audit")
+}
+
+/// Read-only access for other systems. Only a SHA-256 hash of the key is stored; the key itself is shown once, at creation.
+model ApiKey {
+  id         String    @id @default(uuid()) @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  name       String
+  prefix     String
+  hash       String    @unique
+  createdBy  String?   @map("created_by") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at")
+  expiresAt  DateTime  @map("expires_at")
+  lastUsedAt DateTime? @map("last_used_at")
+  revokedAt  DateTime? @map("revoked_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("api_keys")
+}
+
+/// A pending offer to join a company. Only the hash of the link token is stored.
+model Invitation {
+  id         String    @id @default(uuid()) @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  email      String
+  role       String
+  tokenHash  String    @unique @map("token_hash")
+  invitedBy  String?   @map("invited_by") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at")
+  expiresAt  DateTime  @map("expires_at")
+  acceptedAt DateTime? @map("accepted_at")
+  revokedAt  DateTime? @map("revoked_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("invitations")
+}
+
+/// One-time password reset link, issued by a company owner. Account-level like `accounts`: no company row-level security.
+model ResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  accountId String    @map("account_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  createdBy String?   @map("created_by") @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@map("reset_tokens")
+}

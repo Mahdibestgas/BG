@@ -1,0 +1,22 @@
+# Local development database for Cash Flow 13. Loopback only.
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: cf13_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cf13
+      POSTGRES_USER: cf13_owner
+      POSTGRES_PASSWORD: ${OWNER_DB_PW:?set OWNER_DB_PW in .env}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
+    volumes:
+      - cf13_db:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5442:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cf13_owner -d cf13"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+volumes:
+  cf13_db:

@@ -1,0 +1,25 @@
+# dependencies and build output
+node_modules/
+dist/
+
+# secrets: never commit. Real values live only in .env on this PC and in .env.production on the server.
+.env
+.env.*
+!.env.production.example
+*.pem
+*.key
+id_*
+
+# runtime files, logs and the local keep-alive service output
+*.log
+run/logs/
+backups/
+
+# company and bank data must never reach GitHub (plans are loaded onto the server directly)
+*.xlsx
+*.xls
+*.xlsm
+*.csv
+bestgas_plan*.json
+**/out/
+**/schedules/
