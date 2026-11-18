@@ -6,7 +6,7 @@ import { currentScheme, onSystemScheme, setScheme, type Scheme } from '../theme'
 
 const ICONS: Record<string, string> = {
   overview: 'M3 15l4-5 3 3 6-8', cash: 'M3 5h14M3 10h14M3 15h14', balances: 'M3 6h14v9H3zM3 9h14',
-  variance: 'M4 10h5M11 10h5M10 5v10', analysis: 'M4 16V9M10 16V4M16 16v-5', board: 'M5 3h10v14H5zM8 7h4M8 10h4M8 13h2', pnl: 'M3 16h14M5 13l3-4 3 2 4-6', look: 'M10 3a7 7 0 100 14c1 0 1.5-.8 1-1.6-.6-1 0-2.4 1.4-2.4H15a2 2 0 002-2 7 7 0 00-7-8z', activity: 'M10 4v6l3 2M10 17a7 7 0 110-14 7 7 0 010 14z'
+  variance: 'M4 10h5M11 10h5M10 5v10', analysis: 'M4 16V9M10 16V4M16 16v-5', board: 'M5 3h10v14H5zM8 7h4M8 10h4M8 13h2', pnl: 'M3 16h14M5 13l3-4 3 2 4-6', look: 'M10 3a7 7 0 100 14c1 0 1.5-.8 1-1.6-.6-1 0-2.4 1.4-2.4H15a2 2 0 002-2 7 7 0 00-7-8z', activity: 'M10 4v6l3 2M10 17a7 7 0 110-14 7 7 0 010 14z', budget: 'M4 3h12v14H4zM7 7h6M7 10h6M7 13h3', people: 'M7 9a3 3 0 100-6 3 3 0 000 6zM2 17c0-3 2.5-5 5-5s5 2 5 5M14 9a2.5 2.5 0 100-5M15 12c2 .5 3 2.4 3 5'
 };
 const Icon = ({ k }: { k: string }) => <svg viewBox="0 0 20 20" aria-hidden="true"><path d={ICONS[k]} strokeLinecap="round" strokeLinejoin="round" /></svg>;
 
@@ -17,9 +17,11 @@ export function Shell({ children }: { children: ReactNode }) {
   useEffect(() => onSystemScheme(setSch), []);
   const flip = () => { const n: Scheme = scheme === 'dark' ? 'light' : 'dark'; setScheme(n); setSch(n); };
   const name = lang === 'ar' && s.tenant.nameAr ? s.tenant.nameAr : s.tenant.name;
-  const links: Array<[string, string, string]> = [['/', 'overview', t('nav_overview')], ['/cash-flow', 'cash', t('nav_cash')], ['/analysis', 'analysis', t('nav_analysis')], ['/variance', 'variance', t('nav_variance')], ['/pnl', 'pnl', t('nav_pnl')], ['/board', 'board', t('nav_board')], ['/balances', 'balances', t('nav_balances')]];
-  if (s.me.role === 'owner') links.push(['/look', 'look', t('nav_brand')]);
-  if (s.me.role !== 'viewer') links.push(['/activity', 'activity', t('nav_activity')]);
+  const budgetLabel = lang === 'ar' ? 'الميزانيات' : 'Budgets', peopleLabel = lang === 'ar' ? 'الفريق والدعوات' : 'People and invitations';
+  const links: Array<[string, string, string]> = s.me.role === 'contributor' ? [['/budget', 'budget', lang === 'ar' ? 'ميزانية إدارتي' : 'My department budget']] : [['/', 'overview', t('nav_overview')], ['/cash-flow', 'cash', t('nav_cash')], ['/analysis', 'analysis', t('nav_analysis')], ['/variance', 'variance', t('nav_variance')], ['/pnl', 'pnl', t('nav_pnl')], ['/board', 'board', t('nav_board')], ['/balances', 'balances', t('nav_balances')]];
+  if (s.me.role === 'owner' || s.me.role === 'finance') links.push(['/budget', 'budget', budgetLabel]);
+  if (s.me.role === 'owner') links.push(['/people', 'people', peopleLabel], ['/look', 'look', t('nav_brand')]);
+  if (s.me.role === 'owner' || s.me.role === 'finance') links.push(['/activity', 'activity', t('nav_activity')]);
   return (
     <div className="app">
       <aside className="side">

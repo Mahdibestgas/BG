@@ -14,6 +14,9 @@ import { Analysis } from './screens/Analysis';
 import { VarianceScreen } from './screens/Variance';
 import { Board } from './screens/Board';
 import { Pnl } from './screens/Pnl';
+import { BudgetHome, CompanyBudget, DeptBudget } from './screens/Budget';
+import { People } from './screens/People';
+import { Join } from './screens/Join';
 
 export interface Session {
   me: Me;
@@ -37,9 +40,10 @@ export function App() {
   const load = useCallback(async () => {
     try {
       const me = await api<Me & { ok: true }>('GET', '/api/auth/me');
+      // a department head sees only their budget: no cash plans are fetched for them
       const [t, plans] = await Promise.all([
         api<{ tenant: Session['tenant']; theme: Theme | null; hasLogo: boolean; brandingVersion: string | null }>('GET', '/api/tenant'),
-        api<{ plans: PlanSummary[] }>('GET', '/api/plans')
+        me.role === 'contributor' ? Promise.resolve({ plans: [] as PlanSummary[] }) : api<{ plans: PlanSummary[] }>('GET', '/api/plans')
       ]);
       applyTheme(t.theme);
       // the plan last picked on this device, else the newest real plan, else the starter plan
@@ -65,6 +69,7 @@ export function App() {
     return (
       <Routes>
         <Route path="/signup" element={<SignUp onDone={async () => { await load(); nav('/'); }} />} />
+        <Route path="/join/:token" element={<Join onDone={async () => { await load(); nav('/'); }} />} />
         <Route path="*" element={<SignIn onDone={async () => { await load(); nav('/'); }} />} />
       </Routes>
     );
@@ -84,7 +89,18 @@ export function App() {
   return (
     <SessionCtx.Provider value={session}>
       <Shell>
+        {state.me.role === 'contributor' ? (
+          <Routes>
+            <Route path="/budget" element={<BudgetHome />} />
+            <Route path="/budget/:cycle/:dept" element={<DeptBudget />} />
+            <Route path="*" element={<Navigate to="/budget" replace />} />
+          </Routes>
+        ) : (
         <Routes>
+          <Route path="/budget" element={<BudgetHome />} />
+          <Route path="/budget/:cycle/company" element={<CompanyBudget />} />
+          <Route path="/budget/:cycle/:dept" element={<DeptBudget />} />
+          <Route path="/people" element={<People />} />
           <Route path="/" element={<Overview />} />
           <Route path="/cash-flow" element={<CashFlow />} />
           <Route path="/analysis" element={<Analysis />} />
@@ -96,6 +112,7 @@ export function App() {
           <Route path="/activity" element={<Activity />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        )}
       </Shell>
     </SessionCtx.Provider>
   );
