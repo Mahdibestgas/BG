@@ -52,7 +52,7 @@ function useCount(target: number, ms = 900) {
 function Count({ v }: { v: number }) { const x = useCount(v, 650); return <>{acc(x, false)}</>; }
 
 /** A tiny line for one row of numbers; draws itself in. */
-function Spark({ v, color = 'var(--brand)', w = 132, h = 30 }: { v: number[]; color?: string; w?: number; h?: number }) {
+function Spark({ v, color = 'var(--brand-ink)', w = 132, h = 30 }: { v: number[]; color?: string; w?: number; h?: number }) {
   const hi = Math.max(...v, 1), lo = Math.min(...v, 0), span = hi - lo || 1;
   const pts = v.map((x, i) => [4 + (w - 8) * (v.length > 1 ? i / (v.length - 1) : 0), 3 + (h - 6) * (1 - (x - lo) / span)]);
   const d = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
@@ -80,7 +80,7 @@ export function Analysis() {
     if (!s.plan?.id) return;
     let live = true;
     api<{ model: { crossCheck?: CrossCheck | null; seasonality?: Seasonality | null; khazeen?: { cities: KhzCity[] } | null; rent?: RentBlock | null; months?: PlanMonthInfo[] } }>('GET', `/api/plans/${s.plan.id}`)
-      .then((r) => { if (live) { setCc(r.model.crossCheck || null); setSea(r.model.seasonality || null); setKhz(r.model.khazeen?.cities || null); setRentB(r.model.rent && r.model.months ? { rent: r.model.rent, months: r.model.months } : null); } })
+      .then((r) => { if (live) { setCc(r.model.crossCheck || null); setSea(r.model.seasonality && !Array.isArray(r.model.seasonality) && r.model.seasonality.index ? r.model.seasonality : null); setKhz(r.model.khazeen?.cities || null); setRentB(r.model.rent && r.model.months ? { rent: r.model.rent, months: r.model.months } : null); } })
       .catch(() => { if (live) { setCc(null); setSea(null); setKhz(null); setRentB(null); } });
     return () => { live = false; };
   }, [s.plan?.id, s.plan?.version]);
@@ -188,7 +188,7 @@ export function Analysis() {
   const series = G0.kind === 'cash' ? (focus === 'open' ? f.l1.opening : f.l1.closing) : G0.neg ? grp(G0.ids).map((v, i) => v - grp(G0.neg!)[i]) : grp(G0.ids);
   const serTotal = G0.kind === 'cash' ? series[focus === 'open' ? 0 : N - 1] : sum(series);
   const hiW = series.indexOf(Math.max(...series)), loW = series.indexOf(Math.min(...series));
-  const col = G0.kind === 'rec' ? 'var(--rec)' : G0.kind === 'pay' ? 'var(--pay)' : 'var(--brand)';
+  const col = G0.kind === 'rec' ? 'var(--rec)' : G0.kind === 'pay' ? 'var(--pay)' : 'var(--brand-ink)';
   const monthRows = [...months.values()].map((mo) => ({ label: mo.label, v: G0.kind === 'cash' ? series[mo.w[mo.w.length - 1]] : sum(mo.w.map((i) => series[i])) }));
   const insight = (() => {
     if (G0.kind === 'cash') return focus === 'open'
@@ -290,18 +290,18 @@ export function Analysis() {
     const n = 26, x = (i: number) => Lm + (W - Lm - Rm) * (i / (n - 1)), y = (v: number) => Tm + (1 - v / hi) * (H - Tm - Bm);
     const path = (arr: number[], off: number) => arr.map((v, i) => (i ? 'L' : 'M') + x(i + off).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ');
     const labels = [...MONTHS_EN.map((mm) => mm), ...MONTHS_EN, ...['Nov', 'Dec', 'Jan', 'Feb']];
-    const seasonBand = (a: number, b: number) => <rect x={x(a) - 12} y={Tm} width={x(b) - x(a) + 24} height={H - Tm - Bm} rx="10" fill="var(--brand)" opacity=".08" />;
+    const seasonBand = (a: number, b: number) => <rect x={x(a) - 12} y={Tm} width={x(b) - x(a) + 24} height={H - Tm - Bm} rx="10" fill="var(--brand-ink)" opacity=".08" />;
     const ticks = [0, 0.25, 0.5, 0.75, 1].map((p) => hi * p);
     return (
       <svg viewBox={`0 0 ${W} ${H}`} className="an-hist" role="img" aria-label={T('Monthly sales history and forecast', 'المبيعات الشهرية: التاريخ والتوقع')}>
         {ticks.map((v) => <g key={v}><line x1={Lm} x2={W - Rm} y1={y(v)} y2={y(v)} stroke="var(--rule)" /><text x={Lm - 8} y={y(v) + 4} textAnchor="end" fontSize="11" fill="var(--ink2)" className="num">{acc(v / 1e6)}M</text></g>)}
         {seasonBand(9, 13)}{seasonBand(21, 25)}
         <rect x={x(24.2)} y={Tm} width={x(25) - x(24.2) + 12} height={H - Tm - Bm} fill="var(--warn)" opacity=".16" rx="8" />
-        <text x={x(11)} y={Tm + 12} textAnchor="middle" fontSize="11" fill="var(--brand)" fontWeight="600">{T('gas season 2025-26', 'موسم الغاز 2025-26')}</text>
-        <text x={x(23)} y={Tm + 12} textAnchor="middle" fontSize="11" fill="var(--brand)" fontWeight="600">{T('gas season 2026-27', 'موسم الغاز 2026-27')}</text>
-        <path d={path(hist, 0)} fill="none" stroke="var(--brand)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" pathLength={1} className="an-draw" />
+        <text x={x(11)} y={Tm + 12} textAnchor="middle" fontSize="11" fill="var(--brand-ink)" fontWeight="600">{T('gas season 2025-26', 'موسم الغاز 2025-26')}</text>
+        <text x={x(23)} y={Tm + 12} textAnchor="middle" fontSize="11" fill="var(--brand-ink)" fontWeight="600">{T('gas season 2026-27', 'موسم الغاز 2026-27')}</text>
+        <path d={path(hist, 0)} fill="none" stroke="var(--brand-ink)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" pathLength={1} className="an-draw" />
         <path d={`M${x(21)} ${y(hist[21])} ` + fc.map((v, i) => 'L' + x(22 + i).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ')} fill="none" stroke="var(--pay)" strokeWidth="3" strokeDasharray="6 6" strokeLinecap="round" />
-        {hist.map((v, i) => <circle key={i} cx={x(i)} cy={y(v)} r={i === 21 ? 5 : 3} fill="var(--brand)"><title>{(i < 12 ? MN(i) + ' 2025' : MN(i - 12) + ' 2026') + ' · ' + m(v)}</title></circle>)}
+        {hist.map((v, i) => <circle key={i} cx={x(i)} cy={y(v)} r={i === 21 ? 5 : 3} fill="var(--brand-ink)"><title>{(i < 12 ? MN(i) + ' 2025' : MN(i - 12) + ' 2026') + ' · ' + m(v)}</title></circle>)}
         {fc.map((v, i) => <circle key={'f' + i} cx={x(22 + i)} cy={y(v)} r="4" fill="var(--pay)"><title>{T('Forecast ', 'التوقع ') + MN([10, 11, 0, 1][i]) + ' · ' + m(v)}</title></circle>)}
         {labels.map((l, i) => (i % 2 === 0 || i >= 22) ? <text key={i} x={x(i)} y={H - 20} textAnchor="middle" fontSize="10.5" fill="var(--ink2)">{lang === 'ar' ? MONTHS_AR[MONTHS_EN.indexOf(l)].slice(0, 3) : l}</text> : null)}
         <text x={x(5.5)} y={H - 5} textAnchor="middle" fontSize="11" fill="var(--ink2)" fontWeight="600">2025</text>
@@ -319,8 +319,8 @@ export function Analysis() {
       <svg viewBox={`0 0 ${W} ${H}`} className="an-line" role="img" aria-label={T('Closing cash, plan and scenario', 'الرصيد الختامي، الخطة والسيناريو')}>
         <line x1={P} x2={W - P} y1={y(0)} y2={y(0)} stroke="var(--crit)" strokeDasharray="3 5" strokeOpacity=".6" />
         <path d={path(a)} fill="none" stroke="var(--ink2)" strokeOpacity=".5" strokeWidth="2" strokeDasharray="5 5" />
-        <path d={path(b)} fill="none" stroke="var(--brand)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" pathLength={1} className="an-draw" key={dGas + '|' + dSales + '|' + dSeason + '|' + noCapex} />
-        <circle cx={x(scLowW)} cy={y(scLow)} r="5.5" fill={scLow < 0 ? 'var(--crit)' : 'var(--brand)'} />
+        <path d={path(b)} fill="none" stroke="var(--brand-ink)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" pathLength={1} className="an-draw" key={dGas + '|' + dSales + '|' + dSeason + '|' + noCapex} />
+        <circle cx={x(scLowW)} cy={y(scLow)} r="5.5" fill={scLow < 0 ? 'var(--crit)' : 'var(--brand-ink)'} />
       </svg>
     );
   };
@@ -376,7 +376,7 @@ export function Analysis() {
           <button type="button" className="fold" aria-expanded={mbOpen} onClick={() => setMbOpen(!mbOpen)}><h2>{T(`Why ${mb.reported.toFixed(1)}% and not the P&L's ${mb.pl.margin.toFixed(1)}%?`, `لماذا ${mb.reported.toFixed(1)}% وليس ${mb.pl.margin.toFixed(1)}% كما في الأرباح والخسائر؟`)}</h2><span className="ch">{mbOpen ? '⌄' : '›'}</span></button>
           {mbOpen && <>
           <p className="sub">{T('Your P&L shows a cash profit of about 2.4% of sales after interest and zakat (non-cash items removed). The plan’s “cash margin” is before VAT, loan and vehicles. Both on one basis (sales excluding VAT, P&L = average of the last three months):', 'تُظهر الأرباح والخسائر ربحًا نقديًا حوالي 2.4% من المبيعات بعد الفوائد والزكاة (بعد استبعاد البنود غير النقدية). أما «الهامش النقدي» في الخطة فهو قبل الضريبة والقرض والمركبات. على أساس واحد (المبيعات بدون ضريبة، والأرباح والخسائر متوسط آخر ثلاثة أشهر):')}</p>
-          <table className="an-tbl mb-tbl"><tbody>
+          <div className="khz-scroll"><table className="an-tbl mb-tbl"><tbody>
             <tr><td>{T('P&L cash profit margin (after interest and zakat)', 'هامش الربح النقدي في الأرباح والخسائر (بعد الفوائد والزكاة)')}</td><td className="num"><b>{mb.pl.margin.toFixed(1)}%</b></td><td /></tr>
             <tr><td>{T('+ interest and zakat, which the plan keeps below the margin', '+ الفوائد والزكاة التي تضعها الخطة تحت الهامش')}</td><td className="num">+{mb.pl.fin.toFixed(1)}</td><td /></tr>
             <tr className="sub2"><td>{T('= P&L cash margin before financing', '= هامش النقد في الأرباح والخسائر قبل التمويل')}</td><td className="num"><b>{mb.plOpm.toFixed(1)}%</b></td><td /></tr>
@@ -386,7 +386,7 @@ export function Analysis() {
             <tr className="sub2"><td>{T('= the plan’s margin, sales excluding VAT', '= هامش الخطة، المبيعات بدون ضريبة')}</td><td className="num"><b>{mb.planOpm.toFixed(1)}%</b></td><td /></tr>
             <tr><td>{T('+ VAT basis (the plan’s receipts include VAT)', '+ أساس الضريبة (مقبوضات الخطة تشمل الضريبة)')}</td><td className="num">+{mb.vatBasis.toFixed(1)}</td><td /></tr>
             <tr className="sub2"><td>{T('= the plan’s cash margin as shown', '= الهامش النقدي للخطة كما يظهر')}</td><td className="num"><b>{mb.reported.toFixed(1)}%</b></td><td /></tr>
-          </tbody></table>
+          </tbody></table></div>
           <div className="an-callouts" style={{ marginTop: 14 }}>
             <div className="bad"><span>{T('To match the P&L, with your sales', 'للتطابق مع الأرباح والخسائر بمبيعاتك')}</span><b className="num">{m(mb.gasDay)} → {m(mb.gasDayNeeded)}</b><em>{T(`gas purchases a day would have to rise from ${mb.plan.gas.toFixed(1)}% to about ${mb.gasNeeded.toFixed(1)}% of sales, about ${m((mb.gasDayNeeded - mb.gasDay) * planDays(f.weeks))} more over the plan.`, `يجب أن ترتفع مشتريات الغاز اليومية من ${mb.plan.gas.toFixed(1)}% إلى حوالي ${mb.gasNeeded.toFixed(1)}% من المبيعات، أي حوالي ${m((mb.gasDayNeeded - mb.gasDay) * planDays(f.weeks))} إضافية خلال الخطة.`)}</em></div>
             <div className="bad"><span>{T('Or, with your purchases', 'أو بمشترياتك')}</span><b className="num">{m(mb.salesDay)} → {m(mb.salesNeededDay)}</b><em>{T('sales a day would have to be lower, which is close to what the P&L and the bank show for recent months.', 'يجب أن تكون المبيعات اليومية أقل، وهو قريب مما تُظهره الأرباح والخسائر والبنك للأشهر الأخيرة.')}</em></div>
@@ -459,7 +459,7 @@ export function Analysis() {
         <svg viewBox={`0 0 ${WF.W} ${WF.H}`} className="an-wf" role="img" aria-label={T('Cash bridge', 'جسر النقد')}>
           {bars.map((b, i) => {
             const x0 = WF.L + i * bw + bw * 0.14, w = bw * 0.72, top = Math.min(yv(b.from), yv(b.to)), h = Math.max(3, Math.abs(yv(b.from) - yv(b.to)));
-            const c2 = b.kind === 'total' ? 'var(--brand)' : b.kind === 'up' ? 'var(--rec)' : 'var(--pay)';
+            const c2 = b.kind === 'total' ? 'var(--brand-ink)' : b.kind === 'up' ? 'var(--rec)' : 'var(--pay)';
             return (
               <g key={b.k} className={'an-bar' + (focus === b.k ? ' on' : '')} style={{ ['--d' as string]: i * 90 + 'ms' }} tabIndex={0} role="button" aria-label={b.label + ' ' + m(b.v)} onClick={() => setFocus(b.k)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setFocus(b.k); }}>
                 <rect x={WF.L + i * bw} y={WF.T - 8} width={bw} height={WF.B - WF.T + 50} fill="transparent" />
@@ -596,11 +596,11 @@ export function Analysis() {
 
         <section className="card an-in">
           <h2>{T('Month by month', 'شهرًا بشهر')}</h2>
-          <table className="an-tbl"><thead><tr><th /><th>{T('Receipts', 'مقبوضات')}</th><th>{T('Payments', 'مدفوعات')}</th><th>{T('Net', 'الصافي')}</th><th>{T('Cash at end', 'النقد بنهاية الشهر')}</th></tr></thead>
+          <div className="khz-scroll"><table className="an-tbl"><thead><tr><th /><th>{T('Receipts', 'مقبوضات')}</th><th>{T('Payments', 'مدفوعات')}</th><th>{T('Net', 'الصافي')}</th><th>{T('Cash at end', 'النقد بنهاية الشهر')}</th></tr></thead>
             <tbody>{[...months.values()].map((mo) => {
               const r = sum(mo.w.map((i) => rec[i])), p = sum(mo.w.map((i) => f.l1.payments[i])), n = r - p, end = f.l1.closing[mo.w[mo.w.length - 1]];
               return <tr key={mo.label}><td>{mo.label} <small>{T(`${mo.w.length} wks`, `${mo.w.length} أسابيع`)}</small></td><td className="num">{acc(r)}</td><td className="num">{acc(p)}</td><td className={'num ' + (n >= 0 ? 'up' : 'down')}>{acc(n)}</td><td className="num"><b>{acc(end)}</b></td></tr>;
-            })}</tbody></table>
+            })}</tbody></table></div>
           <p className="an-p">{T('Months follow the week start date. Weeks that carry month-end payments (VAT, instalments, payroll, rent) are the heavy ones.', 'تُنسب الأشهر حسب تاريخ بداية الأسبوع. الأسابيع التي تحمل مدفوعات نهاية الشهر (الضريبة والأقساط والرواتب والإيجار) هي الأثقل.')}</p>
         </section>
       </div>
@@ -633,11 +633,11 @@ export function Analysis() {
             <div className={planRecDay > plRevenueDay * 1.05 ? 'bad' : 'ok'}><span>{T('Sales a day (incl. VAT)', 'المبيعات يوميًا (شامل الضريبة)')}</span><b className="num">{m(planRecDay)}</b><em>{T(`P&L last 3 months: about ${m(plRevenueDay)} a day.`, `الأرباح والخسائر لآخر 3 أشهر: حوالي ${m(plRevenueDay)} يوميًا.`)}</em></div>
             <div className="ok"><span>{T('Cash margin', 'الهامش النقدي')}</span><b className="num">{pct(plCashMargin * 100)} → {pct((opM / R) * 100)}</b><em>{T('P&L cash profit as % of revenue, then the plan after gas and running costs.', 'الربح النقدي في الأرباح والخسائر كنسبة من الإيراد، ثم الخطة بعد الغاز والمصاريف.')}</em></div>
           </div>
-          <table className="an-tbl" style={{ marginTop: 14 }}><thead><tr><th>{T('Cost', 'البند')}</th><th>{T('P&L a month', 'الأرباح والخسائر شهريًا')}</th><th>{T('Plan a month', 'الخطة شهريًا')}</th><th>{T('Difference', 'الفرق')}</th><th /></tr></thead>
+          <div className="khz-scroll" style={{ marginTop: 14 }}><table className="an-tbl"><thead><tr><th>{T('Cost', 'البند')}</th><th>{T('P&L a month', 'الأرباح والخسائر شهريًا')}</th><th>{T('Plan a month', 'الخطة شهريًا')}</th><th>{T('Difference', 'الفرق')}</th><th /></tr></thead>
             <tbody>{checkRows.map((r) => (
               <tr key={r.cat}><td>{lang === 'ar' ? r.ar : r.en}</td><td className="num">{acc(r.pl)}</td><td className="num">{acc(r.plan)}</td><td className={'num ' + (r.gap < 0 ? 'down' : 'up')}>{acc(r.gap)}</td>
                 <td><span className={'an-badge ' + r.status}>{{ ok: T('ties', 'متوافق'), missing: T('missing in plan', 'غير موجود في الخطة'), low: T('plan lower', 'الخطة أقل'), high: T('plan higher', 'الخطة أعلى'), note: T('see note', 'انظر الملاحظة') }[r.status]}</span></td></tr>
-            ))}</tbody></table>
+            ))}</tbody></table></div>
           <p className="an-p">{T('GOSI is netted inside the salary lines in the P&L; the plan takes it from the bank. Zakat is booked monthly in the P&L but paid once a year, after this plan ends. The loan line in the P&L is interest only; the plan pays the full instalment.', 'تُخصم التأمينات الاجتماعية داخل بنود الرواتب في الأرباح والخسائر بينما تأخذها الخطة من البنك. تُحمَّل الزكاة شهريًا في الأرباح والخسائر لكنها تُدفع مرة سنويًا بعد انتهاء هذه الخطة. بند القرض في الأرباح والخسائر فوائد فقط، بينما تدفع الخطة القسط كاملًا.')}</p>
         </>}
       </section>

@@ -255,12 +255,12 @@ export function Pnl() {
       <section className="card an-in" style={{ marginTop: 20 }}>
         <h2>{T('From net profit to the cash plan', 'من صافي الربح إلى خطة النقد')}</h2>
         <p className="sub">{T('Why cash is not profit. Every step is a number from the two statements; the steps add up to the change in cash over the plan.', 'لماذا النقد ليس الربح. كل خطوة رقم من القائمتين؛ ومجموع الخطوات يساوي التغير في النقد خلال الخطة.')}</p>
-        <table className="an-tbl"><tbody>
+        <div className="khz-scroll"><table className="an-tbl"><tbody>
           {items.map((it, i) => <tr key={i} className={it.tot ? 'tot' : ''}><td>{i > 0 ? (it.v >= 0 ? '+ ' : '− ') : ''}{lang === 'ar' ? it.ar : it.en}</td><td className={'num ' + (it.v >= 0 ? 'up' : 'down')}>{acc(it.v)}</td></tr>)}
           <tr className="tot"><td>{T('= change in cash in the plan', '= التغير في النقد في الخطة')}</td><td className="num"><b>{acc(explained)}</b></td></tr>
           <tr><td className="sub">{T('Cash plan: closing less opening', 'خطة النقد: الختامي ناقص الافتتاحي')}</td><td className="num">{acc(cashChange)}</td></tr>
           <tr><td className="sub">{T('Difference', 'الفرق')}</td><td className={'num ' + (Math.abs(unexplained) < 2 ? 'up' : 'down')}>{acc(unexplained)}</td></tr>
-        </tbody></table>
+        </tbody></table></div>
         <p className="an-p">{T(`Cost of sales uses ${(ratio * 100).toFixed(1)}% of revenue. Revenue ex VAT is ${m(REV)}; the plan’s receipts are ${m(salesTotal)}.`, `تستخدم تكلفة المبيعات ${(ratio * 100).toFixed(1)}% من الإيراد. الإيراد بدون ضريبة ${m(REV)}؛ ومقبوضات الخطة ${m(salesTotal)}.`)}</p>
       </section>
     </div>

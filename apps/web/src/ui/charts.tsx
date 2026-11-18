@@ -23,23 +23,25 @@ export function Runway({ f, now }: { f: Forecast; now: number }) {
   return (
     <div className="chart">
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={t('runwayTitle')}>
-        {ticks.map((v) => <g key={v}><line x1={L} x2={R} y1={y(v)} y2={y(v)} stroke="var(--rule)" /><text x={axisX} y={y(v) + 4} textAnchor={anchor} fontSize="12" fill="var(--ink2)">{m(v)}</text></g>)}
-        {now >= 0 && <rect x={x(now) - sw / 2} y={T} width={sw} height={B - T} fill="var(--warn)" opacity=".08" />}
-        <path d={`${path} L${x(N - 1)} ${y(Math.max(lo, 0))} L${x(0)} ${y(Math.max(lo, 0))}Z`} fill="var(--brand-soft)" opacity=".8" />
+        <defs><linearGradient id="rw-area" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="var(--brand-ink)" stopOpacity=".2" /><stop offset="1" stopColor="var(--brand-ink)" stopOpacity="0" /></linearGradient></defs>
+        {ticks.map((v) => <g key={v}><line x1={L} x2={R} y1={y(v)} y2={y(v)} stroke="var(--rule)" strokeDasharray={v === 0 ? undefined : '2 4'} /><text x={axisX} y={y(v) + 4} textAnchor={anchor} fontSize="11.5" fill="var(--ink2)">{m(v)}</text></g>)}
+        {now >= 0 && <rect x={x(now) - sw / 2} y={T} width={sw} height={B - T} rx="6" fill="var(--warn)" opacity=".1" />}
+        {tip !== null && <line x1={x(tip)} x2={x(tip)} y1={T} y2={B} stroke="var(--ink2)" strokeOpacity=".45" strokeDasharray="2 3" />}
+        <path d={`${path} L${x(N - 1)} ${y(Math.max(lo, 0))} L${x(0)} ${y(Math.max(lo, 0))}Z`} fill="url(#rw-area)" />
         {buf > 0 && <>
-          <rect x={L} y={y(buf)} width={R - L} height={y(0) - y(buf)} fill="var(--warn-bg)" opacity=".8" />
+          <rect x={L} y={y(buf)} width={R - L} height={y(0) - y(buf)} fill="var(--warn-bg)" opacity=".55" />
           <line x1={L} x2={R} y1={y(buf)} y2={y(buf)} stroke="var(--warn)" strokeDasharray="3 5" />
         </>}
-        {lo < 0 && <rect x={L} y={y(0)} width={R - L} height={y(lo) - y(0)} fill="var(--crit-bg)" opacity=".8" />}
+        {lo < 0 && <rect x={L} y={y(0)} width={R - L} height={y(lo) - y(0)} fill="var(--crit-bg)" opacity=".6" />}
         <line x1={L} x2={R} y1={y(0)} y2={y(0)} stroke="var(--ink2)" strokeOpacity=".6" />
-        <path d={path} fill="none" stroke="var(--brand)" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-        {c.map((v, i) => <circle key={i} cx={x(i)} cy={y(v)} r={i === low ? 6 : 3.8} fill={v < 0 ? 'var(--crit)' : v < buf ? 'var(--warn)' : i === low ? 'var(--warn)' : 'var(--brand)'} stroke="var(--surface)" strokeWidth="2" />)}
-        <text x={x(low)} y={y(c[low]) + 24} textAnchor="middle" fontSize="12.5" fontWeight="600" fill="var(--warn)">{m(c[low])}</text>
+        <path className="line" pathLength={1} d={path} fill="none" stroke="var(--brand-ink)" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+        {c.map((v, i) => <circle key={i} cx={x(i)} cy={y(v)} r={i === low ? 6 : i === tip ? 5 : 3.4} fill={v < 0 ? 'var(--crit)' : v < buf ? 'var(--warn)' : i === low ? 'var(--warn)' : 'var(--brand-ink)'} stroke="var(--surface)" strokeWidth="2" />)}
+        <text x={x(low)} y={y(c[low]) + 24} textAnchor="middle" fontSize="12.5" fontWeight="600" fill="var(--warn)" stroke="var(--surface)" strokeWidth="4" paintOrder="stroke" strokeLinejoin="round">{m(c[low])}</text>
         {f.weeks.map((w, i) => (
           <g key={i}>
-            <text x={x(i)} y={B + 18} textAnchor="middle" fontSize="12" fontWeight={i === now ? 700 : 400} fill={i === now ? 'var(--ink)' : 'var(--ink2)'}>{w.label}</text>
-            <text x={x(i)} y={B + 33} textAnchor="middle" fontSize="10.5" fill="var(--ink2)">{date(w.start, lang)}</text>
-            <rect x={x(i) - sw / 2} y={T} width={sw} height={B - T} fill="transparent" tabIndex={0} aria-label={`${w.label} ${sar(c[i])}`}
+            <text x={x(i)} y={B + 18} textAnchor="middle" fontSize="11.5" fontWeight={i === now ? 700 : 500} fill={i === now ? 'var(--ink)' : 'var(--ink2)'}>{w.label}</text>
+            <text x={x(i)} y={B + 33} textAnchor="middle" fontSize="10" fill="var(--ink2)">{date(w.start, lang)}</text>
+            <rect className="hit" x={x(i) - sw / 2} y={T} width={sw} height={B - T} fill="transparent" tabIndex={0} aria-label={`${w.label} ${sar(c[i])}`}
               onMouseEnter={() => setTip(i)} onMouseLeave={() => setTip(null)} onFocus={() => setTip(i)} onBlur={() => setTip(null)} />
           </g>
         ))}
@@ -70,9 +72,9 @@ export function Bars({ f }: { f: Forecast }) {
   return (
     <div className="chart">
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={t('recPay')}>
-        {[0, mx / 2, mx].map((v) => <g key={v}><line x1={L} x2={R} y1={y(v)} y2={y(v)} stroke="var(--rule)" /><text x={lang === 'ar' ? R + 8 : L - 8} y={y(v) + 4} textAnchor={lang === 'ar' ? 'start' : 'end'} fontSize="11" fill="var(--ink2)">{m(v)}</text></g>)}
+        {[0, mx / 2, mx].map((v) => <g key={v}><line x1={L} x2={R} y1={y(v)} y2={y(v)} stroke="var(--rule)" strokeDasharray={v === 0 ? undefined : '2 4'} /><text x={lang === 'ar' ? R + 8 : L - 8} y={y(v) + 4} textAnchor={lang === 'ar' ? 'start' : 'end'} fontSize="11" fill="var(--ink2)">{m(v)}</text></g>)}
         {f.weeks.map((w, i) => (
-          <g key={i}>
+          <g key={i} opacity={tip === null || tip === i ? 1 : 0.45}>
             {bar(cx(i) - dir * (bw / 2 + 1) - bw / 2, f.l1.receipts[i], 'var(--rec)', 'r')}
             {bar(cx(i) + dir * (bw / 2 + 1) - bw / 2, f.l1.payments[i], 'var(--pay)', 'p')}
             <text x={cx(i)} y={B + 17} textAnchor="middle" fontSize="11" fill="var(--ink2)">{w.label}</text>

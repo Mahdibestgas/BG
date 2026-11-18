@@ -27,3 +27,23 @@ export async function themeFromFile(file: File): Promise<{ theme: Theme; adjuste
   for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
   return { theme: d.theme, adjusted: d.adjusted, base64: btoa(bin), type: file.type, url };
 }
+
+// ---- colour scheme: follows the system until the person picks one on this device
+export type Scheme = 'light' | 'dark';
+const SCHEME_KEY = 'cf13_scheme';
+const systemScheme = (): Scheme => (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+/** The scheme on screen now. */
+export function currentScheme(): Scheme {
+  const a = document.documentElement.getAttribute('data-scheme');
+  return a === 'dark' || a === 'light' ? a : systemScheme();
+}
+/** Applies the saved choice, if any (called once at start-up). */
+export function initScheme() {
+  let saved = '';
+  try { saved = localStorage.getItem(SCHEME_KEY) || ''; } catch { /* private mode */ }
+  if (saved === 'dark' || saved === 'light') document.documentElement.setAttribute('data-scheme', saved);
+}
+export function setScheme(s: Scheme) {
+  document.documentElement.setAttribute('data-scheme', s);
+  try { localStorage.setItem(SCHEME_KEY, s); } catch { /* private mode */ }
+}

@@ -1,7 +1,8 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useSession } from '../App';
 import { useI18n } from '../i18n';
+import { currentScheme, setScheme, type Scheme } from '../theme';
 
 const ICONS: Record<string, string> = {
   overview: 'M3 15l4-5 3 3 6-8', cash: 'M3 5h14M3 10h14M3 15h14', balances: 'M3 6h14v9H3zM3 9h14',
@@ -12,6 +13,8 @@ const Icon = ({ k }: { k: string }) => <svg viewBox="0 0 20 20" aria-hidden="tru
 export function Shell({ children }: { children: ReactNode }) {
   const s = useSession();
   const { t, lang, setLang } = useI18n();
+  const [scheme, setSch] = useState<Scheme>(currentScheme);
+  const flip = () => { const n: Scheme = scheme === 'dark' ? 'light' : 'dark'; setScheme(n); setSch(n); };
   const name = lang === 'ar' && s.tenant.nameAr ? s.tenant.nameAr : s.tenant.name;
   const links: Array<[string, string, string]> = [['/', 'overview', t('nav_overview')], ['/cash-flow', 'cash', t('nav_cash')], ['/analysis', 'analysis', t('nav_analysis')], ['/variance', 'variance', t('nav_variance')], ['/pnl', 'pnl', t('nav_pnl')], ['/board', 'board', t('nav_board')], ['/balances', 'balances', t('nav_balances')]];
   if (s.me.role === 'owner') links.push(['/look', 'look', t('nav_brand')]);
@@ -32,9 +35,14 @@ export function Shell({ children }: { children: ReactNode }) {
               {s.me.companies.map((c) => <option key={c.id} value={c.id}>{lang === 'ar' && c.nameAr ? c.nameAr : c.name}</option>)}
             </select>
           )}
-          <button type="button" onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}>{t('lang')}</button>
-          <button type="button" onClick={() => s.signOut()}>{t('signOut')}</button>
-          <div className="who" title={s.me.account.email}>{s.me.account.name}</div>
+          <div className="side-row">
+            <button type="button" onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}>{t('lang')}</button>
+            <button type="button" onClick={flip} aria-pressed={scheme === 'dark'}>{scheme === 'dark' ? t('schemeLight') : t('schemeDark')}</button>
+          </div>
+          <div className="acct">
+            <div className="who" title={s.me.account.email}>{s.me.account.name}</div>
+            <button type="button" onClick={() => s.signOut()}>{t('signOut')}</button>
+          </div>
         </div>
       </aside>
       <main id="main">

@@ -126,8 +126,8 @@ export function Board() {
         <p className="an-p">{T('No borrowing is needed: cash never falls below the lowest figure above.', 'لا حاجة للاقتراض: لا ينخفض النقد عن أدنى رقم أعلاه.')}</p>
 
         <h3 className="an-h3">{T('3. What the plan rests on', '3. على ماذا تقوم الخطة')}</h3>
-        <table className="an-tbl bd-tbl"><thead><tr><th>{T('Item', 'البند')}</th><th>{T('In the plan', 'في الخطة')}</th><th>{T('Status', 'الحالة')}</th><th>{T('Source and note', 'المصدر والملاحظة')}</th></tr></thead>
-          <tbody>{rows.map((r) => <tr key={r.en}><td>{lang === 'ar' ? r.ar : r.en}</td><td className="num">{r.v}</td><td><span className={'bd-tag ' + r.tag}>{tagName[r.tag]}</span></td><td className="note">{r.src}</td></tr>)}</tbody></table>
+        <div className="khz-scroll"><table className="an-tbl bd-tbl"><thead><tr><th>{T('Item', 'البند')}</th><th>{T('In the plan', 'في الخطة')}</th><th>{T('Status', 'الحالة')}</th><th>{T('Source and note', 'المصدر والملاحظة')}</th></tr></thead>
+          <tbody>{rows.map((r) => <tr key={r.en}><td>{lang === 'ar' ? r.ar : r.en}</td><td className="num">{r.v}</td><td><span className={'bd-tag ' + r.tag}>{tagName[r.tag]}</span></td><td className="note">{r.src}</td></tr>)}</tbody></table></div>
 
         <h3 className="an-h3">{T('4. Risks the board should weigh', '4. المخاطر التي ينبغي للمجلس تقديرها')}</h3>
         <ul className="bd-risk">
@@ -158,7 +158,7 @@ export function Board() {
             <label><span>{T('Notes (optional)', 'ملاحظات (اختياري)')}</span><input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} maxLength={1000} /></label>
           </div>
           <label className="chk"><input type="checkbox" checked={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.checked })} /> {T(`I confirm the board has approved version ${cur} of this plan.`, `أؤكد أن المجلس اعتمد الإصدار ${cur} من هذه الخطة.`)}</label>
-          <div style={{ marginTop: 10, display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div className="actions">
             <button type="button" className="btn" disabled={busy || !form.confirm || !form.approvedBy.trim() || !form.resolution.trim()} onClick={submit}>{busy ? T('Recording…', 'جارٍ التسجيل…') : T('Record approval', 'سجّل الاعتماد')}</button>
             {msg && <span className={'msg ' + (msg.ok ? 'ok' : 'err')}>{msg.t}</span>}
           </div>
