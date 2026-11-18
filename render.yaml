@@ -1,0 +1,39 @@
+# Render Blueprint: one Docker web service (API + built web app) and one PostgreSQL database.
+# The service migrates, applies row-level security and starts on every deploy (deploy/entrypoint.sh).
+services:
+  - type: web
+    name: bestgas-budgeting
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/auth/config
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: bestgas-budgeting-db
+          property: connectionString
+      - key: SESSION_KEY
+        generateValue: true
+      # Render's proxy is one hop in front of the app
+      - key: CF13_TRUST_PROXY
+        value: "1"
+      # leave "on" only to create the first owner account, then set to "off" in the Dashboard
+      - key: CF13_SIGNUP
+        value: "on"
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_WEB_CONFIG
+        sync: false
+
+databases:
+  - name: bestgas-budgeting-db
+    databaseName: cf13
+    plan: basic-256mb
+    region: frankfurt
+    postgresMajorVersion: "16"
+    ipAllowList: []

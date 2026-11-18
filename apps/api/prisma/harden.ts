@@ -13,7 +13,10 @@ async function main() {
   try {
     const sql = fs.readFileSync(path.join(__dirname, 'sql', '01_security.sql'), 'utf8');
     for (const stmt of statements(sql)) await db.$executeRawUnsafe(stmt);
-    await db.$executeRawUnsafe(`ALTER ROLE cf13_app WITH LOGIN PASSWORD '${pw}' NOSUPERUSER NOBYPASSRLS`);
+    // only a superuser may name SUPERUSER/BYPASSRLS at all; a hosted owner (Render) has CREATEROLE only,
+    // and a role it creates can never hold those attributes. The API checks both again when it starts.
+    const [me] = await db.$queryRawUnsafe<Array<{ rolsuper: boolean }>>('SELECT rolsuper FROM pg_roles WHERE rolname = current_user');
+    await db.$executeRawUnsafe(`ALTER ROLE cf13_app WITH LOGIN PASSWORD '${pw}'${me?.rolsuper ? ' NOSUPERUSER NOBYPASSRLS' : ''}`);
     const rls = await db.$queryRawUnsafe<Array<{ relname: string; forced: boolean }>>(
       `SELECT relname, relforcerowsecurity AS forced FROM pg_class WHERE relname IN ('tenants','memberships','branding','plans','audit','api_keys','invitations','budget_settings','budget_cycles','budget_submissions','budget_actuals') ORDER BY relname`);
     console.log('row-level security forced on:', rls.filter((r) => r.forced).map((r) => r.relname).join(', '));
