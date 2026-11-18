@@ -35,8 +35,13 @@ CREATE OR REPLACE FUNCTION apply_tenant_rls(tbl regclass, col text) RETURNS void
 BEGIN
   EXECUTE format('ALTER TABLE %s ENABLE ROW LEVEL SECURITY', tbl);
   EXECUTE format('ALTER TABLE %s FORCE ROW LEVEL SECURITY', tbl);
+  -- the app role sees one company only; the database owner (migrations, the SECURITY DEFINER lookups below)
+  -- keeps full access. On a hosted database the owner is not a superuser, so without its own policy FORCE RLS
+  -- would block the cross-company lookups that sign-in and sign-up need.
   EXECUTE format('DROP POLICY IF EXISTS tenant_isolation ON %s', tbl);
-  EXECUTE format('CREATE POLICY tenant_isolation ON %s USING (%I = current_tenant_id()) WITH CHECK (%I = current_tenant_id())', tbl, col, col);
+  EXECUTE format('DROP POLICY IF EXISTS owner_access ON %s', tbl);
+  EXECUTE format('CREATE POLICY tenant_isolation ON %s TO cf13_app USING (%I = current_tenant_id()) WITH CHECK (%I = current_tenant_id())', tbl, col, col);
+  EXECUTE format('CREATE POLICY owner_access ON %s TO %I USING (true) WITH CHECK (true)', tbl, current_user);
 END $$;
 
 SELECT apply_tenant_rls('tenants', 'id');
