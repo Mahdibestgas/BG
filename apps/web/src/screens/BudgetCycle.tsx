@@ -306,7 +306,7 @@ export function ToCashPlan({ cycleId, startMonth, approvedCount }: { cycleId: st
       <h2>{T('Step 4 · Turn the approved budget into a cash forecast', 'الخطوة 4 · تحويل الميزانية المعتمدة إلى توقع نقدي')}</h2>
       <p className="sub">{T('Adds VAT where it applies, spreads each month over its days, pays the net VAT to ZATCA at the end of the following month and leaves out non-cash items. Every cash screen can then read it. Running it again makes a new version of the same plan.', 'يضيف ضريبة القيمة المضافة حيث تنطبق، ويوزّع كل شهر على أيامه، ويدفع صافي الضريبة للزكاة والضريبة نهاية الشهر التالي، ويستبعد البنود غير النقدية. ثم تقرؤه كل شاشات النقد. إعادة التشغيل تنشئ نسخة جديدة من الخطة نفسها.')}</p>
       <div className="bgt-form">
-        <label className="field"><span>{T('Cash at the bank before the budget starts (SAR)', 'النقد في البنك قبل بدء الميزانية (ريال)')}</span><input inputMode="decimal" className="num" value={opening} onChange={(e) => setOpening(e.target.value)} />{from && <small className="sub">{T('From the forecast: ', 'من التوقع: ')}{from}</small>}</label>
+        <label className="field"><span>{T('Cash at the bank before the budget starts (SAR)', 'النقد في البنك قبل بدء الميزانية (ريال)')}</span><input inputMode="decimal" className="num" aria-label={T('Opening cash (SAR)', 'النقد الافتتاحي (ريال)')} value={opening} onChange={(e) => setOpening(e.target.value)} />{from && <small className="sub">{T('From the forecast: ', 'من التوقع: ')}{from}</small>}</label>
       </div>
       <div className="actions">
         <button type="button" className="btn" disabled={busy || !approvedCount || opening.trim() === '' || !Number.isFinite(Number(opening.replace(/,/g, '')))} onClick={go}>{T('Create the cash plan', 'إنشاء خطة النقد')}</button>
@@ -347,7 +347,7 @@ export function ComparePlans() {
   return (
     <div className="bgt">
       <div className="head">
-        <div><h1>{T('Compare plans', 'مقارنة الخطط')}</h1><p className="sub">{T('Any two cash plans side by side, month by month, by category. For example the budget cash view against the bank forecast. Difference = first minus second.', 'أي خطتي نقد جنبًا إلى جنب شهرًا بشهر حسب الفئة، مثل عرض الميزانية النقدي مقابل توقع البنك. الفرق = الأولى ناقص الثانية.')}</p></div>
+        <div><h1>{T('Compare plans', 'مقارنة الخطط')}</h1><p className="sub">{T('Any two cash plans side by side, month by month, by category. For example the budget cash view against the bank forecast. Difference = first minus second. A week is counted in the month it starts.', 'أي خطتي نقد جنبًا إلى جنب شهرًا بشهر حسب الفئة، مثل عرض الميزانية النقدي مقابل توقع البنك. الفرق = الأولى ناقص الثانية. يُحسب الأسبوع في الشهر الذي يبدأ فيه.')}</p></div>
         <div className="pills">
           <select className="pill" value={a} onChange={(x) => setA(x.target.value)} aria-label={T('First plan', 'الخطة الأولى')}>{real.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
           <span className="sub">{T('against', 'مقابل')}</span>
