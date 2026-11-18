@@ -31,6 +31,16 @@ export async function createApp(): Promise<INestApplication> {
   app.use(cookieParser());
   app.useBodyParser('json', { limit: '1mb' });
   const web = process.env.CF13_WEB_DIR;
-  if (web) app.useStaticAssets(path.resolve(web), { index: 'index.html', fallthrough: true });
+  if (web) {
+    const root = path.resolve(web), indexFile = path.join(root, 'index.html');
+    app.useStaticAssets(root, { index: 'index.html', fallthrough: true });
+    // the web app routes in the browser: any page address (/budget, /account, ...) gets index.html, so a reload or a
+    // shared link opens the page instead of an API 404. /api and real files (with an extension) are left alone.
+    app.use((req: { method: string; path: string }, res: { setHeader: (k: string, v: string) => void; sendFile: (f: string) => void }, next: () => void) => {
+      if ((req.method !== 'GET' && req.method !== 'HEAD') || req.path === '/api' || req.path.startsWith('/api/') || path.extname(req.path)) return next();
+      res.setHeader('cache-control', 'no-cache');
+      res.sendFile(indexFile);
+    });
+  }
   return app;
 }
