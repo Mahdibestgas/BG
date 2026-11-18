@@ -1,15 +1,28 @@
 name: keep-awake
-# Render's free web service sleeps after 15 idle minutes and then takes about a minute to wake.
-# A light request every 10 minutes keeps it awake. GitHub may delay scheduled runs a little.
+# Render's free web service sleeps after 15 idle minutes. GitHub starts scheduled jobs late (often ~50 minutes
+# apart), so a short ping per schedule leaves gaps. Instead each run stays up for almost six hours and pings every
+# 5 minutes; the hourly schedule queues the next run behind it (one at a time), so there is no gap.
+# Actions minutes are free on a public repository. On a private one this uses about 43,000 minutes a month.
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '7 * * * *'
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/keep-awake.yml']
 permissions: {}
+concurrency:
+  group: keep-awake
+  cancel-in-progress: false
 jobs:
   ping:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 355
     steps:
-      - name: Ping the live site
-        run: curl -fsS --retry 3 --retry-delay 20 --max-time 90 -o /dev/null -w "%{http_code} in %{time_total}s\n" https://bestgas-budgeting.onrender.com/api/auth/config
+      - name: Ping the live site every 5 minutes for 5 h 50 min
+        run: |
+          end=$(( $(date +%s) + 350 * 60 ))
+          while [ "$(date +%s)" -lt "$end" ]; do
+            curl -sS --retry 3 --retry-delay 20 --max-time 90 -o /dev/null -w "$(date -u +%H:%M) %{http_code} in %{time_total}s\n" https://bestgas-budgeting.onrender.com/api/auth/config || echo "$(date -u +%H:%M) no answer"
+            sleep 300
+          done
