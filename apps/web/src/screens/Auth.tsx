@@ -5,7 +5,7 @@ import { useI18n } from '../i18n';
 import { firebaseIdToken } from '../firebase';
 
 function Art() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   return (
     <section className="auth-art">
       <div className="auth-brand">
@@ -23,6 +23,7 @@ function Art() {
         ))}
       </div>
       <p>{t('tagline')}</p>
+      <span className="auth-foot">{lang === 'ar' ? 'شركة الناقل الأفضل للغاز · المملكة العربية السعودية' : 'Best Gas Carrier Co. · Kingdom of Saudi Arabia'}</span>
     </section>
   );
 }
@@ -57,7 +58,7 @@ function CodeBoxes({ onCode, busy, verified, allowLetters }: { onCode: (c: strin
 export function SignIn({ onDone }: { onDone: () => void }) {
   const { t, err, lang, setLang } = useI18n();
   const [busy, setBusy] = useState(false), [msg, setMsg] = useState('');
-  const [verified, setVerified] = useState(false);
+  const [verified, setVerified] = useState(false), [showPw, setShowPw] = useState(false), [caps, setCaps] = useState(false);
   const [step2, setStep2] = useState<null | 'app' | 'email'>(null), [creds, setCreds] = useState<{ email: string; password: string }>({ email: '', password: '' });
   const [fb, setFb] = useState<Record<string, string> | null>(null);
   const [signupOpen, setSignupOpen] = useState(true);
@@ -95,17 +96,21 @@ export function SignIn({ onDone }: { onDone: () => void }) {
       <Art />
       <section className="auth-form">
         <form id="signin-form" onSubmit={submit} noValidate>
-          <h1>{t('signIn')}</h1>
+          <div className="auth-hi"><h1>{step2 ? (lang === 'ar' ? 'تحقق من هويتك' : 'Confirm it is you') : (lang === 'ar' ? 'أهلًا بعودتك' : 'Welcome back')}</h1>
+            <p className="sub">{step2 ? '' : (lang === 'ar' ? 'سجّل الدخول إلى ميزانيات بست غاز' : 'Sign in to Best Gas Budgeting')}</p></div>
           {step2 ? <>
             <p className="sub">{step2 === 'email' ? (lang === 'ar' ? 'أرسلنا رمزًا من ستة أرقام إلى بريدك. صالح لمدة 10 دقائق.' : 'We emailed you a six-digit code. It works for 10 minutes.') : (lang === 'ar' ? 'اكتب الرمز الظاهر في تطبيق المصادقة، أو رمز استرداد.' : 'Type the code your authenticator app shows, or a recovery code.')}</p>
             <CodeBoxes busy={busy} verified={verified} onCode={(c) => { const f = document.getElementById('signin-form') as HTMLFormElement | null; const i = f?.querySelector('input[name=code]') as HTMLInputElement | null; if (i) i.value = c; f?.requestSubmit(); }} allowLetters={step2 === 'app'} />
             <input type="hidden" name="code" />
             <button type="button" className="link" onClick={() => { setStep2(null); setMsg(''); }}>{lang === 'ar' ? 'رجوع' : 'Back'}</button>
           </> : <>
-          <label className="field"><span>{t('email')}</span><input name="email" type="email" autoComplete="username" required /></label>
-          <label className="field"><span>{t('password')}</span><input name="pw" type="password" autoComplete="current-password" required /></label>
+          <label className="field ic"><span>{t('email')}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14v10H3zM3 6l7 5 7-5" /></svg><input name="email" type="email" autoComplete="username" required placeholder="name@bestgas.sa" /></label>
+          <label className="field ic"><span>{t('password')}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 9h10v8H5zM7 9V6a3 3 0 016 0v3" /></svg>
+            <input name="pw" type={showPw ? 'text' : 'password'} autoComplete="current-password" required onKeyUp={(e) => setCaps(e.getModifierState && e.getModifierState('CapsLock'))} />
+            <button type="button" className="pw-eye" onClick={() => setShowPw(!showPw)} aria-label={showPw ? (lang === 'ar' ? 'إخفاء كلمة المرور' : 'Hide password') : (lang === 'ar' ? 'إظهار كلمة المرور' : 'Show password')} aria-pressed={showPw}>{showPw ? (lang === 'ar' ? 'إخفاء' : 'Hide') : (lang === 'ar' ? 'إظهار' : 'Show')}</button></label>
+          {caps && <p className="caps">{lang === 'ar' ? 'مفتاح الأحرف الكبيرة مفعّل' : 'Caps Lock is on'}</p>}
           </>}
-          <button className="btn" disabled={busy}>{busy ? t('signingIn') : t('signIn')}</button>
+          {!verified && <button className={'btn auth-go' + (busy ? ' busy' : '')} disabled={busy}>{busy ? <><i className="spin" aria-hidden="true" />{t('signingIn')}</> : step2 ? (lang === 'ar' ? 'تحقق' : 'Verify') : t('signIn')}</button>}
           {fb && <button type="button" className="btn ghost" style={{ marginTop: 8 }} disabled={busy} onClick={google}>{lang === 'ar' ? 'المتابعة باستخدام Google' : 'Continue with Google'}</button>}
           <p className="msg err" role="alert" style={{ minHeight: 22, marginTop: 8 }}>{msg}</p>
           <p className="alt">{signupOpen && <>{t('noAccount')} <Link to="/signup">{t('signUp')}</Link> · </>}<button type="button" className="link" onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}>{t('lang')}</button></p>
