@@ -100,6 +100,7 @@ export function BudgetHome() {
         <section className="card">
           <h2>{cycle.name} <span className={'pill' + (cycle.status === 'open' ? ' ok' : '')}>{cycle.status === 'open' ? T('Open', 'مفتوحة') : T('Closed', 'مغلقة')}</span></h2>
           <p className="sub">{monthLabel(cycle.monthKeys[0], lang)} – {monthLabel(cycle.monthKeys[cycle.months - 1], lang)} · {cycle.months} {T('months', 'شهرًا')}{cycle.deadline ? ' · ' + T('departments submit by ', 'تسليم الإدارات بحلول ') + date(cycle.deadline, lang, { day: 'numeric', month: 'long', year: 'numeric' }) : ''} · {T('amounts in SAR, excluding VAT', 'المبالغ بالريال وبدون ضريبة القيمة المضافة')}</p>
+          <Cylinders cycleId={cycle.id} departments={board.departments} />
           <div className="khz-scroll" style={{ marginTop: 14 }}>
             <table className="tbl bgt-board"><thead><tr><th>{T('Department', 'الإدارة')}</th><th>{T('Status', 'الحالة')}</th><th>{T('Study and plan', 'الدراسة والخطة')}</th><th className="n">{T('Revenue', 'الإيرادات')}</th><th className="n">{T('Costs', 'التكاليف')}</th><th className="n">{T('Capex', 'الرأسمالية')}</th><th>{T('Updated', 'آخر تحديث')}</th><th /></tr></thead>
               <tbody>{board.departments.map((d: any) => (
@@ -121,6 +122,48 @@ export function BudgetHome() {
       {owner && <NewCycle onDone={(id) => { reload(); setCycleId(id); }} />}
       {owner && <Settings meta={meta} onDone={() => { reload(); setMsg({ ok: true, t: T('Settings saved.', 'تم حفظ الإعدادات.') }); }} />}
       {owner && <p className="sub" style={{ marginTop: 18 }}>{T('Department heads join by invitation: ', 'ينضم مديرو الإدارات بدعوة: ')}<Link className="link" to="/people">{T('People and invitations', 'الفريق والدعوات')}</Link></p>}
+    </div>
+  );
+}
+
+/** How far a department is: study and plan written, lines entered, submitted, approved. */
+function progressOf(d: any): number {
+  if (d.status === 'approved') return 1;
+  if (d.status === 'submitted') return 0.9;
+  const r = d.readiness;
+  if (!r) return 0;
+  const study = (r.study / Math.max(1, r.studyOf)) * 0.3;
+  const plan = (r.vision ? 0.1 : 0) + Math.min(1, r.objectives / 3) * 0.15 + (r.risks ? 0.05 : 0);
+  const lines = Math.min(1, r.lines / 5) * 0.3;
+  return Math.min(0.85, study + plan + lines);
+}
+/** The round at a glance: every department is a cylinder that fills from study to approval. */
+function Cylinders({ cycleId, departments }: { cycleId: string; departments: any[] }) {
+  const { lang, txt } = useI18n();
+  const T = (en: string, ar: string) => (lang === 'ar' ? ar : en);
+  const stage = (d: any) => d.status === 'approved' ? T('Approved', 'معتمدة') : d.status === 'submitted' ? T('Waiting for you', 'بانتظارك') : d.status === 'returned' ? T('Returned', 'أعيدت') : !d.readiness ? T('Not started', 'لم تبدأ') : d.readiness.lines ? T('Budgeting', 'يعدّ الميزانية') : d.readiness.vision || d.readiness.objectives ? T('Planning', 'يخطط') : T('Studying', 'يدرس');
+  const done = departments.filter((d) => d.status === 'approved').length;
+  return (
+    <div className="cyl-wrap">
+      <p className="sub cyl-note">{T(`${done} of ${departments.length} departments approved`, `${done} من ${departments.length} إدارات معتمدة`)}</p>
+      <div className="cyl-row">
+        {departments.map((d, i) => {
+          const p = progressOf(d), H = 84, fill = Math.round(H * p);
+          return (
+            <Link key={d.department} to={`/budget/${cycleId}/${d.department}`} className={'cyl ' + d.status} aria-label={txt(d.name) + ': ' + stage(d) + ', ' + Math.round(p * 100) + '%'}>
+              <svg viewBox="0 0 48 112" aria-hidden="true">
+                <rect x="17" y="2" width="14" height="8" rx="2" className="cyl-valve" />
+                <rect x="6" y="12" width="36" height="96" rx="15" className="cyl-body" />
+                <clipPath id={'cy' + i}><rect x="6" y="12" width="36" height="96" rx="15" /></clipPath>
+                <rect x="6" y={108 - fill - 6} width="36" height={fill + 6} clipPath={`url(#cy${i})`} className="cyl-fill" style={{ ['--h' as any]: (fill + 6) + 'px', animationDelay: i * 70 + 'ms' }} />
+                <line x1="6" x2="42" y1={108 - H * 0.9 - 6} y2={108 - H * 0.9 - 6} className="cyl-mark" />
+              </svg>
+              <b>{txt(d.name)}</b>
+              <span>{stage(d)}</span>
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -288,6 +331,8 @@ export function DeptBudget() {
         <div className="pills"><StatusPill s={status} />{d.submission && d.submission.revision > 1 && <span className="pill">{T('Revision ', 'المراجعة ')}{d.submission.revision}</span>}{d.approvedRevision && status !== 'approved' && <span className="pill ok">{T('Approved revision ', 'المراجعة المعتمدة ')}{d.approvedRevision}</span>}</div>
       </div>
       {s.me.role !== 'contributor' && <p className="sub" style={{ marginTop: -12, marginBottom: 14 }}><Link className="link" to="/budget">{T('← All departments', '← كل الإدارات')}</Link></p>}
+      <DeptHero status={status} deadline={d.cycle.deadline} tab={tab} onTab={setTab}
+        readiness={{ study: Object.values(study).filter((x) => x.trim()).length, studyOf: 5, vision: !!plan.vision.trim(), objectives: plan.objectives.length, risks: plan.risks.length, lines: all.length }} />
       {status === 'returned' && d.submission?.reviewComment && <div className="demo" role="note"><b>{T('Returned for changes: ', 'أعيدت للتعديل: ')}</b>{d.submission.reviewComment}</div>}
 
       <div className="an-kpis sm">
@@ -299,7 +344,7 @@ export function DeptBudget() {
       </div>
 
       <div className="seg bgt-tabs" role="tablist" aria-label={T('Steps', 'الخطوات')}>
-        {([['study', T('1 · Study', '1 · الدراسة')], ['plan', T('2 · Plan', '2 · الخطة')], ['budget', T('3 · Budget', '3 · الميزانية')]] as Array<['study' | 'plan' | 'budget', string]>).map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} aria-pressed={tab === k} onClick={() => setTab(k)}>{l}</button>)}
+        {([['study', T('1 Study', '1 الدراسة'), `${Object.values(study).filter((x) => x.trim()).length}/5`], ['plan', T('2 Plan', '2 الخطة'), T(`${plan.objectives.length} objectives`, `${plan.objectives.length} أهداف`)], ['budget', T('3 Budget', '3 الميزانية'), T(`${all.length} lines`, `${all.length} سطرًا`)]] as Array<['study' | 'plan' | 'budget', string, string]>).map(([k, l, c]) => <button key={k} type="button" role="tab" aria-selected={tab === k} aria-pressed={tab === k} onClick={() => setTab(k)}>{l} <small className="tab-count">{c}</small></button>)}
       </div>
       {tab === 'study' && <StudyEditor study={study} editable={editable} onChange={(x) => { setStudy(x); touch(); }} />}
       {tab === 'plan' && <PlanEditor plan={plan} months={d.cycle.monthKeys} editable={editable} onChange={(x) => { setPlan(x); touch(); }} />}
@@ -367,6 +412,40 @@ export function DeptBudget() {
       </section>
       {tab === 'budget' && all.length > 0 && <Summary meta={meta} lines={all} months={d.cycle.monthKeys} regionName={regionName} />}
     </div>
+  );
+}
+
+/** The department head's own view of the round: how full their cylinder is, what each step still needs, and the days left. */
+function DeptHero({ status, deadline, readiness, tab, onTab }: { status: Status; deadline: string | null; readiness: { study: number; studyOf: number; vision: boolean; objectives: number; risks: number; lines: number }; tab: string; onTab: (t: 'study' | 'plan' | 'budget') => void }) {
+  const { lang } = useI18n();
+  const T = (en: string, ar: string) => (lang === 'ar' ? ar : en);
+  const p = progressOf({ status, readiness }), H = 84, fill = Math.round(H * p);
+  const days = deadline ? Math.ceil((new Date(deadline + 'T23:59:59').getTime() - Date.now()) / 86400000) : null;
+  const steps: Array<{ k: 'study' | 'plan' | 'budget'; t: string; done: boolean; note: string }> = [
+    { k: 'study', t: T('Study', 'الدراسة'), done: readiness.study >= 3, note: T(`${readiness.study} of 5 sections written`, `${readiness.study} من 5 أقسام مكتوبة`) },
+    { k: 'plan', t: T('Plan', 'الخطة'), done: readiness.vision && readiness.objectives > 0, note: readiness.vision ? T(`${readiness.objectives} objectives, ${readiness.risks} risks`, `${readiness.objectives} أهداف، ${readiness.risks} مخاطر`) : T('Write the vision and objectives', 'اكتب الرؤية والأهداف') },
+    { k: 'budget', t: T('Budget', 'الميزانية'), done: readiness.lines > 0, note: readiness.lines ? T(`${readiness.lines} lines entered`, `${readiness.lines} سطرًا مُدخلًا`) : T('Add the first line', 'أضف أول سطر') }
+  ];
+  const next = status === 'approved' ? T('Approved. It is part of the company budget.', 'معتمدة وأصبحت جزءًا من ميزانية الشركة.')
+    : status === 'submitted' ? T('Submitted. Waiting for the owner to approve or return it.', 'مسلّمة. بانتظار اعتماد المالك أو إعادتها.')
+    : steps.every((x) => x.done) ? T('All three steps have content: save and submit for approval below.', 'الخطوات الثلاث مكتملة: احفظ ثم سلّم للاعتماد أدناه.')
+    : (() => { const k = steps.find((x) => !x.done)!.k; return k === 'study' ? T('Next: write at least three of the five study sections.', 'التالي: اكتب ثلاثة على الأقل من أقسام الدراسة الخمسة.') : k === 'plan' ? T('Next: write the vision and at least one objective with its KPI.', 'التالي: اكتب الرؤية وهدفًا واحدًا على الأقل مع مؤشره.') : T('Next: add your budget lines, month by month.', 'التالي: أضف بنود ميزانيتك شهرًا بشهر.'); })();
+  return (
+    <section className={'card dept-hero ' + status}>
+      <svg viewBox="0 0 48 112" className="dept-cyl" aria-hidden="true">
+        <rect x="17" y="2" width="14" height="8" rx="2" className="cyl-valve" />
+        <rect x="6" y="12" width="36" height="96" rx="15" className="cyl-body" />
+        <clipPath id="dh-cyl"><rect x="6" y="12" width="36" height="96" rx="15" /></clipPath>
+        <rect x="6" y={108 - fill - 6} width="36" height={fill + 6} clipPath="url(#dh-cyl)" className="cyl-fill" />
+      </svg>
+      <div className="dept-hero-main">
+        <div className="dept-hero-top"><b className="dept-pct">{Math.round(p * 100)}%</b>
+          {days !== null && status !== 'approved' && <span className={'dept-days' + (days <= 3 ? ' soon' : '')}>{days > 1 ? T(`${days} days to submit`, `${days} يومًا للتسليم`) : days === 1 ? T('Due tomorrow', 'الموعد غدًا') : days === 0 ? T('Due today', 'الموعد اليوم') : T('Past the deadline', 'تجاوز الموعد')}</span>}</div>
+        <p className="dept-next">{next}</p>
+        <ol className="dept-steps">{steps.map((x, i) => <li key={x.k} className={(x.done ? 'done' : '') + (tab === x.k ? ' on' : '')}>
+          <button type="button" onClick={() => onTab(x.k)}><span className="n" aria-hidden="true">{x.done ? '✓' : i + 1}</span><span><b>{x.t}</b><small>{x.note}</small></span></button></li>)}</ol>
+      </div>
+    </section>
   );
 }
 
