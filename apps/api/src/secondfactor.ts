@@ -3,6 +3,7 @@ import type { Account } from '@prisma/client';
 import { Db } from './db';
 import { AppError } from './http';
 import { sendMail } from './mail';
+import { signInCodeEmail } from './mailTemplates';
 import { sha256 } from './security';
 import { openSecret, verifyTotp } from './totp';
 
@@ -40,8 +41,8 @@ export async function requireSecondFactor(db: Db, acc: Account, code: unknown): 
     if (!recent) {   // one email a minute at most, whatever is clicked
       const fresh = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
       await db.account.update({ where: { id: acc.id }, data: { emailOtpHash: emailCodeHash(acc.id, fresh), emailOtpExpires: new Date(now + EMAIL_CODE_MINUTES * 60000) } });
-      await sendMail(acc.email, 'Your Best Gas Budgeting sign-in code: ' + fresh,
-        `Your sign-in code is ${fresh}\n\nIt works once, for ${EMAIL_CODE_MINUTES} minutes.\nIf you did not try to sign in, change your password.\n\nرمز الدخول: ${fresh} (صالح لمرة واحدة لمدة ${EMAIL_CODE_MINUTES} دقائق)`);
+      const mail = signInCodeEmail(acc.name, fresh, EMAIL_CODE_MINUTES);
+      await sendMail(acc.email, mail.subject, mail.text, mail.html);
     }
     throw new AppError('email_code_required', 401);
   }

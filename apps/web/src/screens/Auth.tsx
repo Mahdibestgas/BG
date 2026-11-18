@@ -27,9 +27,37 @@ function Art() {
   );
 }
 
+/** Six boxes for a six-digit code: type, paste or let the phone fill it; the last digit submits. A recovery code (letters) still fits. */
+function CodeBoxes({ onCode, busy, verified, allowLetters }: { onCode: (c: string) => void; busy: boolean; verified: boolean; allowLetters: boolean }) {
+  const { lang } = useI18n();
+  const [d, setD] = useState<string[]>(['', '', '', '', '', '']), [alt, setAlt] = useState('');
+  const refs = Array.from({ length: 6 }, () => null as HTMLInputElement | null);
+  const box = (i: number) => document.getElementById('otp-' + i) as HTMLInputElement | null;
+  const set = (i: number, v: string) => {
+    const only = v.replace(/\D/g, '');
+    if (only.length > 1) { const all = only.slice(0, 6).split(''); const next = [...all, ...new Array(6 - all.length).fill('')]; setD(next); if (all.length === 6) onCode(all.join('')); else box(all.length)?.focus(); return; }
+    const next = d.map((x, j) => (j === i ? only : x)); setD(next);
+    if (only && i < 5) box(i + 1)?.focus();
+    if (next.every((x) => x)) onCode(next.join(''));
+  };
+  if (verified) return <div className="otp-done" role="status"><svg viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="24" /><path d="M15 27l7 7 15-16" /></svg><b>{lang === 'ar' ? 'تم التحقق' : 'Verified'}</b><span>{lang === 'ar' ? 'جارٍ الدخول…' : 'Signing you in…'}</span></div>;
+  return (
+    <>
+      <div className={'otp' + (busy ? ' busy' : '')} dir="ltr">
+        {d.map((x, i) => <input key={i} id={'otp-' + i} ref={(el) => { refs[i] = el; }} inputMode="numeric" autoComplete={i === 0 ? 'one-time-code' : 'off'} maxLength={i === 0 ? 6 : 1} value={x} autoFocus={i === 0} disabled={busy}
+          aria-label={(lang === 'ar' ? 'الرقم ' : 'Digit ') + (i + 1)}
+          onChange={(e) => set(i, e.target.value)} onKeyDown={(e) => { if (e.key === 'Backspace' && !x && i > 0) box(i - 1)?.focus(); }}
+          onPaste={(e) => { e.preventDefault(); set(i, e.clipboardData.getData('text')); }} />)}
+      </div>
+      {allowLetters && <label className="field"><span>{lang === 'ar' ? 'أو رمز استرداد' : 'Or a recovery code'}</span><input value={alt} onChange={(e) => setAlt(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && alt.trim()) { e.preventDefault(); onCode(alt.trim()); } }} /></label>}
+    </>
+  );
+}
+
 export function SignIn({ onDone }: { onDone: () => void }) {
   const { t, err, lang, setLang } = useI18n();
   const [busy, setBusy] = useState(false), [msg, setMsg] = useState('');
+  const [verified, setVerified] = useState(false);
   const [step2, setStep2] = useState<null | 'app' | 'email'>(null), [creds, setCreds] = useState<{ email: string; password: string }>({ email: '', password: '' });
   const [fb, setFb] = useState<Record<string, string> | null>(null);
   const [signupOpen, setSignupOpen] = useState(true);
@@ -47,7 +75,7 @@ export function SignIn({ onDone }: { onDone: () => void }) {
     const f = new FormData(e.currentTarget);
     setBusy(true); setMsg('');
     if (step2) {
-      try { await api('POST', '/api/auth/login', { ...creds, code: String(f.get('code') || '') }); onDone(); }
+      try { await api('POST', '/api/auth/login', { ...creds, code: String(f.get('code') || '') }); setVerified(true); await new Promise((r) => setTimeout(r, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 900)); onDone(); }
       catch (x) { setMsg(x instanceof ApiError && x.code === 'invalid_credentials' ? (lang === 'ar' ? 'الرمز غير صحيح أو انتهت صلاحيته.' : 'That code is not right or has expired.') : err(x instanceof ApiError ? x.code : 'network')); }
       finally { setBusy(false); }
       return;
@@ -66,11 +94,12 @@ export function SignIn({ onDone }: { onDone: () => void }) {
     <div className="auth">
       <Art />
       <section className="auth-form">
-        <form onSubmit={submit} noValidate>
+        <form id="signin-form" onSubmit={submit} noValidate>
           <h1>{t('signIn')}</h1>
           {step2 ? <>
             <p className="sub">{step2 === 'email' ? (lang === 'ar' ? 'أرسلنا رمزًا من ستة أرقام إلى بريدك. صالح لمدة 10 دقائق.' : 'We emailed you a six-digit code. It works for 10 minutes.') : (lang === 'ar' ? 'اكتب الرمز الظاهر في تطبيق المصادقة، أو رمز استرداد.' : 'Type the code your authenticator app shows, or a recovery code.')}</p>
-            <label className="field"><span>{lang === 'ar' ? 'الرمز' : 'Code'}</span><input name="code" inputMode="numeric" autoComplete="one-time-code" autoFocus required /></label>
+            <CodeBoxes busy={busy} verified={verified} onCode={(c) => { const f = document.getElementById('signin-form') as HTMLFormElement | null; const i = f?.querySelector('input[name=code]') as HTMLInputElement | null; if (i) i.value = c; f?.requestSubmit(); }} allowLetters={step2 === 'app'} />
+            <input type="hidden" name="code" />
             <button type="button" className="link" onClick={() => { setStep2(null); setMsg(''); }}>{lang === 'ar' ? 'رجوع' : 'Back'}</button>
           </> : <>
           <label className="field"><span>{t('email')}</span><input name="email" type="email" autoComplete="username" required /></label>
