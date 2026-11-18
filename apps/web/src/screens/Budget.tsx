@@ -205,13 +205,15 @@ export function DeptBudget() {
 
   const n = d?.cycle.monthKeys.length || 0;
   const items = useMemo(() => (meta ? meta.pack.items.filter((i) => i.dept === dept) : []), [meta, dept]);
-  const generated = useMemo(() => (meta ? positions.flatMap((p) => positionLines(p, n, meta.params)) : []), [positions, meta, n]);
+  const liveGenerated = useMemo(() => (meta ? positions.flatMap((p) => positionLines(p, n, meta.params)) : []), [positions, meta, n]);
   if (!d || !meta) return msg ? <p className="msg err">{msg.t}</p> : <p className="sub">…</p>;
 
   const depName = meta.pack.allDepartments.find((x) => x.id === dept)?.name;
   const status: Status = d.submission?.status || 'not_started';
   const editable = d.cycle.status === 'open' && (status === 'not_started' || status === 'draft' || status === 'returned') && s.me.role !== 'viewer';
   const isOwner = s.me.role === 'owner', canReturn = isOwner || s.me.role === 'finance';
+  // a locked budget shows the HR lines as they were saved, never redrawn from today's rates
+  const generated = editable ? liveGenerated : (d.submission?.body.lines || []).filter((l) => l.posId);
   const itemOf = (id: string) => meta.pack.items.find((i) => i.id === id);
   const regionName = (id: string) => txt(meta.regions.find((r) => r.id === id)?.name) || id;
   const all = [...lines, ...generated];
@@ -264,7 +266,7 @@ export function DeptBudget() {
 
       <div className="an-kpis sm">
         {dept === 'sales' ? <div className="an-kpi sm t-rec"><span className="l">{T('Revenue', 'الإيرادات')}</span><span className="v num">{m(byKind('revenue'))}</span></div> : null}
-        <div className="an-kpi sm t-pay"><span className="l">{T('Costs', 'التكاليف')}</span><span className="v num">{m(byKind('cogs') + byKind('opex') + byKind('noncash'))}</span></div>
+        <div className="an-kpi sm t-pay"><span className="l">{T('Costs', 'التكاليف')}</span><span className="v num">{m(byKind('cogs') + byKind('opex') + byKind('noncash') + byKind('financing'))}</span></div>
         <div className="an-kpi sm t-brand"><span className="l">{T('Capex', 'النفقات الرأسمالية')}</span><span className="v num">{m(byKind('capex'))}</span></div>
         {dept === 'hr' && <div className="an-kpi sm t-brand"><span className="l">{T('Headcount', 'عدد الموظفين')}</span><span className="v num">{positions.reduce((t, p) => t + p.headcount, 0)}</span><span className="s">{T('Saudi ', 'سعودي ')}{positions.filter((p) => p.saudi).reduce((t, p) => t + p.headcount, 0)}</span></div>}
         <div className="an-kpi sm t-brand"><span className="l">{T('Lines', 'الأسطر')}</span><span className="v num">{all.length}</span></div>

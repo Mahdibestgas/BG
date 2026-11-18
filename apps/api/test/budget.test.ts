@@ -152,3 +152,20 @@ test('another company cannot see this cycle, and the database refuses it too', a
   assert.equal(n, 0, 'row-level security hides the other company');
   await assert.rejects(asApp.$queryRawUnsafe('SELECT count(*) FROM budget_cycles'), /app.tenant_id is not set/);
 });
+
+test('settings: owner only, version-checked, HR confirmation kept, and a city in use cannot be removed', async () => {
+  const meta = await O.call('GET', '/api/budget/meta');
+  const regions = meta.body.regions.map((r: any) => (r.id === 'arar' ? { ...r, name: { en: "Ar'ar city", ar: 'مدينة عرعر' } } : r));
+  const params = { ...meta.body.params, medicalAnnual: 1500, confirmed: true };
+  assert.equal((await HR.call('PUT', '/api/budget/settings', { version: meta.body.settingsVersion, regions, params })).status, 403, 'a head cannot change rates');
+  let r = await O.call('PUT', '/api/budget/settings', { version: meta.body.settingsVersion, regions, params });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal((await O.call('PUT', '/api/budget/settings', { version: meta.body.settingsVersion, regions, params })).status, 409, 'a stale save is refused');
+  const after = await HR.call('GET', '/api/budget/meta');
+  assert.equal(after.body.params.confirmed, true); assert.equal(after.body.params.medicalAnnual, 1500);
+  assert.equal(after.body.regions.find((x: any) => x.id === 'arar').name.en, "Ar'ar city", 'renamed, same id');
+  r = await O.call('PUT', '/api/budget/settings', { version: r.body.version, regions: regions.filter((x: any) => x.id !== 'riyadh'), params });
+  assert.equal(r.status, 409); assert.equal(r.body.error, 'region_in_use:riyadh');
+  const hr = await O.call('GET', `/api/budget/cycles/${cycle}/departments/hr`);
+  assert.equal(hr.body.submission.body.lines.find((l: any) => l.item === 'hr_medical').amounts[0], 1000, 'a saved budget is not redrawn when the company rates change (1,200 a head, 10 people, /12)');
+});

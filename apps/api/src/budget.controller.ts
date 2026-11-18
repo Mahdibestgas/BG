@@ -81,6 +81,13 @@ export class BudgetController {
     return this.db.inTenant(ctx.tenantId, async (tx) => {
       const cur = await tx.budgetSettings.findFirst();
       if ((cur?.version ?? 0) !== b?.version) throw new AppError('stale_settings', 409);
+      // a city still used by a budget line or position cannot disappear (rename it instead: its id stays)
+      const keep = new Set(regions.map((r) => r.id));
+      for (const sub of await tx.budgetSubmission.findMany({ select: { body: true } })) {
+        const body = sub.body as unknown as SubmissionBody;
+        const used = [...(body?.lines || []).map((l) => l.region), ...(body?.positions || []).map((p) => p.region)].find((r) => !keep.has(r));
+        if (used) throw new AppError('region_in_use:' + used, 409);
+      }
       const saved = cur
         ? await tx.budgetSettings.update({ where: { tenantId: ctx.tenantId }, data: { regions: regions as any, params: params as any, version: { increment: 1 } } })
         : await tx.budgetSettings.create({ data: { tenantId: ctx.tenantId, regions: regions as any, params: params as any, version: 1 } });
