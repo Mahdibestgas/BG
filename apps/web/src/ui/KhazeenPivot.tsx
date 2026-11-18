@@ -4,7 +4,7 @@ import { acc, date, m } from '../format';
 
 export interface KhzCity { id: string; en: string; ar: string; daily: number[]; instalments: number[] }
 const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
-const COL = ['var(--pay)', '#c28a2c', '#5b6fb0', '#2f8f83'];
+const COL = ['#C2552B', '#9A6A1C', '#5B6FB0', '#24756B'];   // white text on each stays above 4.5:1, in light and dark
 const pcs = (p: number | null) => (p === null ? '–' : p < 0 ? '(' + Math.abs(p).toFixed(1) + '%)' : p.toFixed(1) + '%');
 
 /** KHAZEEN gas purchases aggregated, pivoted by city and by month (a week counts in the month it starts in). */
