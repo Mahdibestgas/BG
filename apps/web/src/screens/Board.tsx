@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Loading } from '../ui/Loading';
 import { api, ApiError } from '../api';
 import { useSession } from '../App';
 import { useI18n } from '../i18n';
@@ -46,7 +47,7 @@ export function Board() {
   }, [f]);
 
   if (error) return <p className="msg err">{error}</p>;
-  if (!f || !D || !s.plan) return <p className="sub">…</p>;
+  if (!f || !D || !s.plan) return <Loading />;
   const { N, R, P, G, opex, open, end, low, lowW, capex, vat, loan } = D;
   const last = apps[0], cur = s.plan.version;
   const sea = model.seasonality, cc = model.crossCheck, rent = model.rent;

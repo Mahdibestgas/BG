@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Loading } from '../ui/Loading';
 import { api } from '../api';
 import { useSession } from '../App';
 import { useI18n } from '../i18n';
@@ -19,7 +20,7 @@ export function VarianceScreen() {
   const T = (en: string, ar: string) => (lang === 'ar' ? ar : en);
   const [v, setV] = useState<Variance | null | undefined>(undefined);
   useEffect(() => { if (s.plan?.id) api<{ model: { variance?: Variance | null } }>('GET', `/api/plans/${s.plan.id}`).then((r) => setV(r.model?.variance || null)).catch(() => setV(null)); }, [s.plan?.id, s.plan?.version]);
-  if (v === undefined) return <p className="sub">…</p>;
+  if (v === undefined) return <Loading />;
   if (!v) return <div className="vr"><div className="head"><div><h1>{T('Forecast vs actual', 'المتوقع مقابل الفعلي')}</h1></div></div><p className="empty">{T('No actual days yet inside the plan: the bank sheet has not reached the plan start.', 'لا توجد أيام فعلية داخل الخطة بعد.')}</p></div>;
 
   const name = (c: string) => (NAMES[c] ? NAMES[c][lang === 'ar' ? 1 : 0] : c);

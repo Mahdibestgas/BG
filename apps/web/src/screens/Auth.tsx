@@ -6,19 +6,19 @@ import { firebaseIdToken } from '../firebase';
 
 function Art() {
   const { t } = useI18n();
-  const pts = [0.62, 0.7, 0.78, 0.71, 0.5, 0.57, 0.64, 0.72, 0.52, 0.6, 0.68, 0.77, 0.66];
-  const d = pts.map((p, i) => (i ? 'L' : 'M') + (10 + i * 30) + ' ' + (130 - p * 110)).join(' ');
   return (
     <section className="auth-art">
-      <div className="auth-brand"><i aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M3 14l4-5 3 3 7-8" strokeLinecap="round" strokeLinejoin="round" /></svg></i>{t('product')}</div>
-      <svg className="sketch" viewBox="0 0 380 150" aria-hidden="true">
-        {[30, 67, 105].map((y) => <line key={y} x1="0" y1={y} x2="380" y2={y} stroke="currentColor" strokeOpacity=".12" />)}
-        <rect x="0" y="105" width="380" height="35" fill="currentColor" opacity=".07" />
-        <line x1="0" y1="105" x2="380" y2="105" stroke="currentColor" strokeOpacity=".45" strokeDasharray="3 5" />
-        <path d={d + ' L370 140 L10 140Z'} fill="currentColor" opacity=".08" />
-        <path d={d} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-        {pts.map((p, i) => <circle key={i} cx={10 + i * 30} cy={130 - p * 110} r={i === 4 ? 5 : 2.6} fill="currentColor" />)}
-      </svg>
+      <div className="auth-brand"><img src="/bestgas-logo.png" alt="" className="auth-logo" />{t('product')}</div>
+      <div className="auth-round" aria-hidden="true">
+        {[0.35, 0.6, 1, 0.85, 1, 0.5, 0.75].map((f, i) => (
+          <svg key={i} viewBox="0 0 48 112" style={{ ['--i' as any]: i }}>
+            <rect x="17" y="2" width="14" height="8" rx="2" className="ar-valve" />
+            <rect x="6" y="12" width="36" height="96" rx="15" className="ar-body" />
+            <clipPath id={'ar' + i}><rect x="6" y="12" width="36" height="96" rx="15" /></clipPath>
+            <rect x="6" y={108 - 90 * f} width="36" height={90 * f} clipPath={`url(#ar${i})`} className={'ar-fill' + (f === 1 ? ' full' : '')} />
+          </svg>
+        ))}
+      </div>
       <p>{t('tagline')}</p>
     </section>
   );

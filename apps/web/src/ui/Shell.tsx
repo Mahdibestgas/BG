@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useSession } from '../App';
 import { useI18n } from '../i18n';
 import { currentScheme, onSystemScheme, setScheme, type Scheme } from '../theme';
@@ -13,6 +13,7 @@ const Icon = ({ k }: { k: string }) => <svg viewBox="0 0 20 20" aria-hidden="tru
 export function Shell({ children }: { children: ReactNode }) {
   const s = useSession();
   const { t, lang, setLang } = useI18n();
+  const where = useLocation().pathname;
   const [scheme, setSch] = useState<Scheme>(currentScheme);
   useEffect(() => onSystemScheme(setSch), []);
   const flip = () => { const n: Scheme = scheme === 'dark' ? 'light' : 'dark'; setScheme(n); setSch(n); };
@@ -56,7 +57,7 @@ export function Shell({ children }: { children: ReactNode }) {
       </aside>
       <main id="main">
         {s.plan?.demo && <div className="demo" role="note"><b>{t('demo')}</b> {t('demoText')}{(s.me.role === 'owner' || s.me.role === 'finance') && <> <NavLink className="link" to="/plans/import">{L('Load your plan file', 'حمّل ملف خطتك')}</NavLink></>}</div>}
-        {children}
+        <div className="route-in" key={where}>{children}</div>
       </main>
     </div>
   );

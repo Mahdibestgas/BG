@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { Loading } from '../ui/Loading';
 import { useParams } from 'react-router-dom';
 import { api, ApiError } from '../api';
 import { useI18n } from '../i18n';
@@ -22,7 +23,7 @@ export function Join({ onDone }: { onDone: () => void }) {
       <section className="auth-art"><div className="auth-brand">{t('product')}</div><p>{T('Every department plans its part. One company budget.', 'كل إدارة تخطط لجزئها. ميزانية واحدة للشركة.')}</p></section>
       <div className="auth-form"><form onSubmit={submit}>
         <button type="button" className="link" onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}>{t('lang')}</button>
-        {!inv && !e && <p className="sub">…</p>}
+        {!inv && !e && <Loading />}
         {e && <p className="msg err">{e}</p>}
         {inv && <>
           <h1>{T(`Join ${inv.company}`, `الانضمام إلى ${inv.company}`)}</h1>

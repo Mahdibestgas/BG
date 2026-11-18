@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Loading } from '../ui/Loading';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { api, type Forecast, type Txt } from '../api';
 import { useSession } from '../App';
@@ -120,7 +121,7 @@ export function Analysis() {
   const heroNum = useCount(heroTarget);
 
   if (error) return <p className="msg err">{error}</p>;
-  if (!f || !A) return <p className="sub">…</p>;
+  if (!f || !A) return <Loading />;
   const { N, L, cat, grp, rec, gas, opex, oblig, capex, other, otherIds, opening, closing, R, G, O, B, C, X, months, monthsPerPlan, r0, rMax } = A;
   const net = f.l1.net, lowW = f.headline.lowestWeek, lowV = f.headline.lowestCash;
   const opM = R - G - O;

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Loading } from '../ui/Loading';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiError, type Forecast, type Txt } from '../api';
 import { useSession } from '../App';
@@ -95,7 +96,7 @@ export function Overview() {
   }, [f, lang]);
 
   if (error) return <p className="msg err">{error}</p>;
-  if (!f || !D) return <p className="sub">…</p>;
+  if (!f || !D) return <Loading />;
   const { N, L, rec, pay, net, close, R, P, mo, gas, months, parts } = D;
   const h = f.headline, now = currentWeek(f.weeks), cc = x.crossCheck, sea = x.seasonality;
   const bad = f.checks.filter((c) => !c.ok).length;

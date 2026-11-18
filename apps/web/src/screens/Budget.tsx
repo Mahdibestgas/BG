@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { Loading } from '../ui/Loading';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { KIND_NAMES, positionLines, type Consolidated, type HrParams, type Item, type Kind, type Line, type Position, type Txt } from '@cf13/budget';
 import { api, ApiError } from '../api';
@@ -67,7 +68,7 @@ export function BudgetHome() {
   }, [cycleId, s.me.role, err]);
 
   if (error) return <p className="msg err">{err(error)}</p>;
-  if (!meta) return <p className="sub">…</p>;
+  if (!meta) return <Loading />;
   const cycle = meta.cycles.find((c) => c.id === cycleId);
 
   // a department head goes straight to their department in the open cycle
@@ -275,7 +276,7 @@ export function DeptBudget() {
   const n = d?.cycle.monthKeys.length || 0;
   const items = useMemo(() => (meta ? meta.pack.items.filter((i) => i.dept === dept) : []), [meta, dept]);
   const liveGenerated = useMemo(() => (meta ? positions.flatMap((p) => positionLines(p, n, meta.params)) : []), [positions, meta, n]);
-  if (!d || !meta) return msg ? <p className="msg err">{msg.t}</p> : <p className="sub">…</p>;
+  if (!d || !meta) return msg ? <p className="msg err">{msg.t}</p> : <Loading />;
 
   const depName = meta.pack.allDepartments.find((x) => x.id === dept)?.name;
   const status: Status = d.submission?.status || 'not_started';
@@ -531,7 +532,7 @@ export function CompanyBudget() {
   const [preview, setPreview] = useState(false), [r, setR] = useState<{ cycle: Cycle; included: Array<{ department: string; status: string; revision: number }>; budget: Consolidated } | null>(null), [e, setE] = useState('');
   useEffect(() => { api('GET', `/api/budget/cycles/${cycleId}/consolidated${preview ? '?include=submitted' : ''}`).then(setR).catch((x) => setE(err(x.code))); }, [cycleId, preview, err]);
   if (e) return <p className="msg err">{e}</p>;
-  if (!r || !meta) return <p className="sub">…</p>;
+  if (!r || !meta) return <Loading />;
   const b = r.budget, keys = b.months;
   const dName = (id: string) => txt(meta.pack.allDepartments.find((x) => x.id === id)?.name);
   const rName = (id: string) => txt(meta.regions.find((x) => x.id === id)?.name) || id;

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Loading } from '../ui/Loading';
 import { api, ApiError } from '../api';
 import { useI18n } from '../i18n';
 import { date } from '../format';
@@ -31,7 +32,7 @@ export function People() {
       setLink(location.origin + r.path); setF({ ...f, email: '' }); load();
     } catch (e) { fail(e); }
   }
-  if (!data) return msg ? <p className="msg err">{msg.t}</p> : <p className="sub">…</p>;
+  if (!data) return msg ? <p className="msg err">{msg.t}</p> : <Loading />;
   return (
     <div className="bgt">
       <div className="head"><div><h1>{T('People and invitations', 'الفريق والدعوات')}</h1>

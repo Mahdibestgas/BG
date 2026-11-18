@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Loading } from '../ui/Loading';
 import { api } from '../api';
 import { useSession } from '../App';
 import { useI18n } from '../i18n';
@@ -113,7 +114,7 @@ export function Pnl() {
   }, [f, mdl, cogsBasis, lang]);
 
   if (error) return <p className="msg err">{error}</p>;
-  if (!f || !D) return <p className="sub">…</p>;
+  if (!f || !D) return <Loading />;
   const { cc, ratio, salesTotal, gasTotal, cash, weekCols, monthCols, actCols, byCode } = D;
   const cols: Col[] = view === 'week' ? weekCols : view === 'month' ? [...actCols, ...monthCols] : [...actCols.slice(-1), ...monthCols];
   const nPlan = monthCols.length;

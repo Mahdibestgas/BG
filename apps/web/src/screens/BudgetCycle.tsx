@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Loading } from '../ui/Loading';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { favourable, STUDY_FIELDS, type DeptPlan, type Kind, type Study } from '@cf13/budget';
 import { api, ApiError } from '../api';
@@ -121,7 +122,7 @@ export function BudgetActuals() {
     return { rows, months: [...new Set(rows.map((r) => r.month))].sort(), total: sum(rows.map((r) => (Number.isFinite(r.amount) ? r.amount : 0))) };
   }, [text, meta]);
 
-  if (!d || !meta) return msg ? <p className="msg err">{msg.t}</p> : <p className="sub">…</p>;
+  if (!d || !meta) return msg ? <p className="msg err">{msg.t}</p> : <Loading />;
   const byMonth = d.cycle.monthKeys.map((k) => { const rs = d.rows.filter((r) => r.month === k); return { k, n: rs.length, total: sum(rs.map((r) => r.amount)), source: rs[0]?.source }; });
   const template = () => download('actuals-template.csv', [['month', 'item', 'region', 'amount', 'item name (ignored)', 'department (ignored)'],
     ...meta.pack.items.map((i) => [d.cycle.monthKeys[0], i.id, meta.regions[0]?.id || '', 0, i.name.en, txt(meta.pack.allDepartments.find((x) => x.id === i.dept)?.name)])]);
@@ -182,9 +183,9 @@ export function BudgetVariance() {
   useEffect(() => { if (cycleId) api<VarData>('GET', `/api/budget/cycles/${cycleId}/variance`).then((r) => { setD(r); setE(''); }).catch((x) => setE(err(x instanceof ApiError ? x.code : 'network'))); }, [cycleId, err]);
 
   if (e) return <p className="msg err">{e}</p>;
-  if (!meta) return <p className="sub">…</p>;
+  if (!meta) return <Loading />;
   if (!meta.cycles.length) return <p className="empty">{T('No budget round yet. Open one under Budgets.', 'لا توجد دورة ميزانية بعد. افتح واحدة من الميزانيات.')}</p>;
-  if (!d) return <p className="sub">…</p>;
+  if (!d) return <Loading />;
   const keys = d.cycle.monthKeys, last = d.actualMonths.length ? keys.indexOf(d.actualMonths[d.actualMonths.length - 1]) : -1;
   const idx = period === 'ytd' ? keys.map((_, i) => i).filter((i) => i <= last) : period === 'full' ? keys.map((_, i) => i) : [keys.indexOf(period)];
   const pick2 = (a: number[]) => sum(idx.map((i) => a[i] || 0));
@@ -365,7 +366,7 @@ export function ComparePlans() {
         </div>
       </div>
       {e && <p className="msg err">{e}</p>}
-      {!data ? <p className="sub">…</p> : <>
+      {!data ? <Loading /> : <>
         <section className="card">
           <h2>{T('Cash month by month', 'النقد شهرًا بشهر')}</h2>
           <div className="khz-scroll"><table className="tbl bgt-cmp"><thead><tr><th />{data.months.map((mo) => <th key={mo} className="n">{monthLabel(mo, lang)}</th>)}</tr></thead>
