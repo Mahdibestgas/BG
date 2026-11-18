@@ -15,6 +15,7 @@ import { VarianceScreen } from './screens/Variance';
 import { Board } from './screens/Board';
 import { Pnl } from './screens/Pnl';
 import { BudgetHome, CompanyBudget, DeptBudget } from './screens/Budget';
+import { BudgetActuals, BudgetVariance, ComparePlans } from './screens/BudgetCycle';
 import { People } from './screens/People';
 import { Join } from './screens/Join';
 
@@ -99,6 +100,10 @@ export function App() {
         <Routes>
           <Route path="/budget" element={<BudgetHome />} />
           <Route path="/budget/:cycle/company" element={<CompanyBudget />} />
+          <Route path="/budget/:cycle/actuals" element={<BudgetActuals />} />
+          <Route path="/budget/:cycle/variance" element={<BudgetVariance />} />
+          <Route path="/reports/budget-vs-actual" element={<BudgetVariance />} />
+          <Route path="/reports/compare" element={<ComparePlans />} />
           <Route path="/budget/:cycle/:dept" element={<DeptBudget />} />
           <Route path="/people" element={<People />} />
           <Route path="/" element={<Overview />} />

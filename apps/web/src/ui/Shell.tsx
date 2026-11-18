@@ -17,11 +17,17 @@ export function Shell({ children }: { children: ReactNode }) {
   useEffect(() => onSystemScheme(setSch), []);
   const flip = () => { const n: Scheme = scheme === 'dark' ? 'light' : 'dark'; setScheme(n); setSch(n); };
   const name = lang === 'ar' && s.tenant.nameAr ? s.tenant.nameAr : s.tenant.name;
-  const budgetLabel = lang === 'ar' ? 'الميزانيات' : 'Budgets', peopleLabel = lang === 'ar' ? 'الفريق والدعوات' : 'People and invitations';
-  const links: Array<[string, string, string]> = s.me.role === 'contributor' ? [['/budget', 'budget', lang === 'ar' ? 'ميزانية إدارتي' : 'My department budget']] : [['/', 'overview', t('nav_overview')], ['/cash-flow', 'cash', t('nav_cash')], ['/analysis', 'analysis', t('nav_analysis')], ['/variance', 'variance', t('nav_variance')], ['/pnl', 'pnl', t('nav_pnl')], ['/board', 'board', t('nav_board')], ['/balances', 'balances', t('nav_balances')]];
-  if (s.me.role === 'owner' || s.me.role === 'finance') links.push(['/budget', 'budget', budgetLabel]);
-  if (s.me.role === 'owner') links.push(['/people', 'people', peopleLabel], ['/look', 'look', t('nav_brand')]);
-  if (s.me.role === 'owner' || s.me.role === 'finance') links.push(['/activity', 'activity', t('nav_activity')]);
+  const L = (en: string, ar: string) => (lang === 'ar' ? ar : en);
+  const fin = s.me.role === 'owner' || s.me.role === 'finance';
+  // the order the work happens: study and plan, budget, forecast, reports, then administration
+  const groups: Array<{ h: string; links: Array<[string, string, string]> }> = s.me.role === 'contributor'
+    ? [{ h: '', links: [['/budget', 'budget', L('Study, plan and budget', 'الدراسة والخطة والميزانية')]] }]
+    : [
+      ...(fin ? [{ h: L('Study, plan, budget', 'الدراسة والخطة والميزانية'), links: [['/budget', 'budget', L('Department budgets', 'ميزانيات الإدارات')]] as Array<[string, string, string]> }] : []),
+      { h: L('Cash forecast', 'التوقع النقدي'), links: [['/', 'overview', t('nav_overview')], ['/cash-flow', 'cash', t('nav_cash')], ['/analysis', 'analysis', t('nav_analysis')], ['/pnl', 'pnl', t('nav_pnl')], ['/balances', 'balances', t('nav_balances')]] },
+      { h: L('Reports', 'التقارير'), links: [...(fin ? [['/reports/budget-vs-actual', 'variance', L('Budget vs actual', 'الميزانية مقابل الفعلي')]] as Array<[string, string, string]> : []), ['/variance', 'variance', t('nav_variance')], ['/reports/compare', 'analysis', L('Compare plans', 'مقارنة الخطط')], ['/board', 'board', t('nav_board')]] },
+      ...(fin ? [{ h: L('Administration', 'الإدارة'), links: [...(s.me.role === 'owner' ? [['/people', 'people', L('People and invitations', 'الفريق والدعوات')], ['/look', 'look', t('nav_brand')]] as Array<[string, string, string]> : []), ['/activity', 'activity', t('nav_activity')]] as Array<[string, string, string]> }] : [])
+    ];
   return (
     <div className="app">
       <aside className="side">
@@ -30,7 +36,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <div><b>{name}</b><span>{t('product')}</span></div>
         </div>
         <nav className="nav" aria-label={t('product')}>
-          {links.map(([to, k, label]) => <NavLink key={to} to={to} end={to === '/'}><Icon k={k} />{label}</NavLink>)}
+          {groups.map((g, i) => <div className="nav-g" key={i}>{g.h && <div className="nav-h">{g.h}</div>}{g.links.map(([to, k, label]) => <NavLink key={to} to={to} end={to === '/' || to === '/budget'}><Icon k={k} />{label}</NavLink>)}</div>)}
         </nav>
         <div className="side-foot">
           {s.me.companies.length > 1 && (

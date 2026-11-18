@@ -5,6 +5,8 @@ import { api, ApiError } from '../api';
 import { useSession } from '../App';
 import { useI18n } from '../i18n';
 import { acc, date, m } from '../format';
+import { EMPTY_PLAN, EMPTY_STUDY, type DeptPlan, type Study } from '@cf13/budget';
+import { PlanEditor, StudyEditor, ToCashPlan } from './BudgetCycle';
 
 // ---------------------------------------------------------------- shared
 export interface Cycle { id: string; name: string; startMonth: string; months: number; monthKeys: string[]; status: 'open' | 'closed'; deadline: string | null; version: number }
@@ -87,7 +89,9 @@ export function BudgetHome() {
         <div><h1>{T('Department budgets', 'ميزانيات الإدارات')}</h1>
           <p className="sub">{T('Each department head prepares their own budget. You approve or return it, and approved budgets add up into one company budget.', 'يعدّ كل مدير إدارة ميزانية إدارته، وتعتمدها أنت أو تعيدها، ثم تجتمع الميزانيات المعتمدة في ميزانية واحدة للشركة.')}</p></div>
         {meta.cycles.length > 0 && <div className="pills"><select className="pill" value={cycleId} onChange={(e) => setCycleId(e.target.value)} aria-label={T('Budget round', 'دورة الميزانية')}>{meta.cycles.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-          {cycle && <Link className="btn" to={`/budget/${cycle.id}/company`}>{T('Company budget', 'ميزانية الشركة')}</Link>}</div>}
+          {cycle && <Link className="btn" to={`/budget/${cycle.id}/company`}>{T('Company budget', 'ميزانية الشركة')}</Link>}
+          {cycle && <Link className="btn ghost" to={`/budget/${cycle.id}/actuals`}>{T('Actuals', 'الفعلي')}</Link>}
+          {cycle && <Link className="btn ghost" to={`/budget/${cycle.id}/variance`}>{T('Budget vs actual', 'الميزانية مقابل الفعلي')}</Link>}</div>}
       </div>
       {msg && <p className={'msg ' + (msg.ok ? 'ok' : 'err')}>{msg.t}</p>}
 
@@ -96,11 +100,12 @@ export function BudgetHome() {
           <h2>{cycle.name} <span className={'pill' + (cycle.status === 'open' ? ' ok' : '')}>{cycle.status === 'open' ? T('Open', 'مفتوحة') : T('Closed', 'مغلقة')}</span></h2>
           <p className="sub">{monthLabel(cycle.monthKeys[0], lang)} – {monthLabel(cycle.monthKeys[cycle.months - 1], lang)} · {cycle.months} {T('months', 'شهرًا')}{cycle.deadline ? ' · ' + T('departments submit by ', 'تسليم الإدارات بحلول ') + date(cycle.deadline, lang, { day: 'numeric', month: 'long', year: 'numeric' }) : ''} · {T('amounts in SAR, excluding VAT', 'المبالغ بالريال وبدون ضريبة القيمة المضافة')}</p>
           <div className="khz-scroll" style={{ marginTop: 14 }}>
-            <table className="tbl bgt-board"><thead><tr><th>{T('Department', 'الإدارة')}</th><th>{T('Status', 'الحالة')}</th><th className="n">{T('Revenue', 'الإيرادات')}</th><th className="n">{T('Costs', 'التكاليف')}</th><th className="n">{T('Capex', 'الرأسمالية')}</th><th>{T('Updated', 'آخر تحديث')}</th><th /></tr></thead>
+            <table className="tbl bgt-board"><thead><tr><th>{T('Department', 'الإدارة')}</th><th>{T('Status', 'الحالة')}</th><th>{T('Study and plan', 'الدراسة والخطة')}</th><th className="n">{T('Revenue', 'الإيرادات')}</th><th className="n">{T('Costs', 'التكاليف')}</th><th className="n">{T('Capex', 'الرأسمالية')}</th><th>{T('Updated', 'آخر تحديث')}</th><th /></tr></thead>
               <tbody>{board.departments.map((d: any) => (
                 <tr key={d.department}>
                   <td><b>{txt(d.name)}</b>{d.revision > 1 ? <span className="sub"> · {T('revision', 'مراجعة')} {d.revision}</span> : null}{d.reviewComment && d.status === 'returned' ? <div className="sub">“{d.reviewComment}”</div> : null}</td>
                   <td><StatusPill s={d.status} />{d.approvedRevision && d.status !== 'approved' ? <div className="sub">{T('approved revision ', 'المراجعة المعتمدة ')}{d.approvedRevision}</div> : null}</td>
+                  <td className="sub">{d.readiness ? <>{T('study ', 'الدراسة ')}{d.readiness.study}/{d.readiness.studyOf} · {d.readiness.vision ? T('vision', 'رؤية') : <span className="warn-t">{T('no vision', 'بلا رؤية')}</span>} · {d.readiness.objectives} {T('objectives', 'أهداف')} · {d.readiness.risks} {T('risks', 'مخاطر')}</> : '–'}</td>
                   <td className="n num">{d.totals ? acc(d.totals.revenue) : '–'}</td><td className="n num">{d.totals ? acc(d.totals.costs) : '–'}</td><td className="n num">{d.totals ? acc(d.totals.capex) : '–'}</td>
                   <td className="sub">{d.updatedAt ? date(d.updatedAt.slice(0, 10), lang, { day: 'numeric', month: 'short' }) : '–'}</td>
                   <td><Link className="link" to={`/budget/${cycle.id}/${d.department}`}>{d.status === 'submitted' && owner ? T('Review', 'مراجعة') : T('Open', 'فتح')}</Link></td>
@@ -188,7 +193,7 @@ function Settings({ meta, onDone }: { meta: Meta; onDone: () => void }) {
 }
 
 // ---------------------------------------------------------------- department workspace
-interface DeptData { cycle: Cycle & { monthKeys: string[] }; department: string; submission: null | { id: string; revision: number; status: Status; version: number; body: { lines: Line[]; positions: Position[] }; reviewComment: string | null; submittedAt: string | null; updatedAt: string }; approvedRevision: number | null; revisions: Array<{ revision: number; status: Status }> }
+interface DeptData { cycle: Cycle & { monthKeys: string[] }; department: string; submission: null | { id: string; revision: number; status: Status; version: number; body: { lines: Line[]; positions: Position[]; study?: Study; plan?: DeptPlan }; reviewComment: string | null; submittedAt: string | null; updatedAt: string }; approvedRevision: number | null; revisions: Array<{ revision: number; status: Status }> }
 
 export function DeptBudget() {
   const { cycle: cycleId = '', dept = '' } = useParams();
@@ -197,9 +202,10 @@ export function DeptBudget() {
   const T = (en: string, ar: string) => (lang === 'ar' ? ar : en);
   const { meta } = useBudgetMeta();
   const [d, setD] = useState<DeptData | null>(null), [lines, setLines] = useState<Line[]>([]), [positions, setPositions] = useState<Position[]>([]);
+  const [study, setStudy] = useState<Study>(EMPTY_STUDY), [plan, setPlan] = useState<DeptPlan>(EMPTY_PLAN), [tab, setTab] = useState<'study' | 'plan' | 'budget'>('study');
   const [dirty, setDirty] = useState(false), [busy, setBusy] = useState(false), [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null), [comment, setComment] = useState('');
   const load = useCallback(() => api<DeptData>('GET', `/api/budget/cycles/${cycleId}/departments/${dept}`).then((r) => {
-    setD(r); setLines((r.submission?.body.lines || []).filter((l) => !l.posId)); setPositions(r.submission?.body.positions || []); setDirty(false);
+    setD(r); setLines((r.submission?.body.lines || []).filter((l) => !l.posId)); setPositions(r.submission?.body.positions || []); setStudy({ ...EMPTY_STUDY, ...(r.submission?.body.study || {}) }); setPlan({ ...EMPTY_PLAN, ...(r.submission?.body.plan || {}) }); setDirty(false);
   }).catch((e) => setMsg({ ok: false, t: err(e instanceof ApiError ? e.code : 'network') })), [cycleId, dept, err]);
   useEffect(() => { load(); }, [load]);
 
@@ -229,7 +235,7 @@ export function DeptBudget() {
   }
   async function save() {
     setBusy(true); setMsg(null);
-    try { await api('PUT', `/api/budget/cycles/${cycleId}/departments/${dept}`, { version, body: { lines, positions } }); await load(); setMsg({ ok: true, t: T('Draft saved.', 'تم حفظ المسودة.') }); }
+    try { await api('PUT', `/api/budget/cycles/${cycleId}/departments/${dept}`, { version, body: { lines, positions, study, plan } }); await load(); setMsg({ ok: true, t: T('Draft saved.', 'تم حفظ المسودة.') }); }
     catch (e) { setMsg({ ok: false, t: errText(e) }); }
     finally { setBusy(false); }
   }
@@ -272,9 +278,14 @@ export function DeptBudget() {
         <div className="an-kpi sm t-brand"><span className="l">{T('Lines', 'الأسطر')}</span><span className="v num">{all.length}</span></div>
       </div>
 
-      {dept === 'hr' && <Positions meta={meta} n={n} months={d.cycle.monthKeys} positions={positions} editable={editable} onChange={(p) => { setPositions(p); touch(); }} generated={generated} />}
+      <div className="seg bgt-tabs" role="tablist" aria-label={T('Steps', 'الخطوات')}>
+        {([['study', T('1 · Study', '1 · الدراسة')], ['plan', T('2 · Plan', '2 · الخطة')], ['budget', T('3 · Budget', '3 · الميزانية')]] as Array<['study' | 'plan' | 'budget', string]>).map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} aria-pressed={tab === k} onClick={() => setTab(k)}>{l}</button>)}
+      </div>
+      {tab === 'study' && <StudyEditor study={study} editable={editable} onChange={(x) => { setStudy(x); touch(); }} />}
+      {tab === 'plan' && <PlanEditor plan={plan} months={d.cycle.monthKeys} editable={editable} onChange={(x) => { setPlan(x); touch(); }} />}
+      {tab === 'budget' && dept === 'hr' && <Positions meta={meta} n={n} months={d.cycle.monthKeys} positions={positions} editable={editable} onChange={(p) => { setPositions(p); touch(); }} generated={generated} />}
 
-      <section className="card" style={{ marginTop: 20 }}>
+      {tab === 'budget' && <section className="card" style={{ marginTop: 20 }}>
         <h2>{dept === 'hr' ? T('Other HR lines', 'بنود الموارد البشرية الأخرى') : T('Budget lines', 'بنود الميزانية')}</h2>
         <p className="sub">{T('One line per item and city. Use quantity × price where the item has a unit (cylinders, litres, vehicles).', 'سطر لكل بند ومدينة. استخدم الكمية × السعر للبنود التي لها وحدة (أسطوانات، لترات، مركبات).')}</p>
         {lines.length === 0 && <p className="empty" style={{ marginTop: 12 }}>{T('No lines yet. Add the first item below.', 'لا توجد أسطر بعد. أضف أول بند أدناه.')}</p>}
@@ -320,7 +331,7 @@ export function DeptBudget() {
           <option value="">{T('+ Add a line…', '+ إضافة سطر…')}</option>
           {groups.map((gr) => <optgroup key={gr.g.en} label={txt(gr.g)}>{gr.items.filter((x) => !(dept === 'hr' && ['hr_salaries', 'hr_gosi', 'hr_eosb', 'hr_levy', 'hr_iqama'].includes(x.id))).map((x) => <option key={x.id} value={x.id}>{txt(x.name)}</option>)}</optgroup>)}
         </select></div>}
-      </section>
+      </section>}
 
       <section className="card bgt-actions" style={{ marginTop: 20 }}>
         <div className="actions" style={{ marginTop: 0 }}>
@@ -334,7 +345,7 @@ export function DeptBudget() {
         </div>
         {status === 'submitted' && !isOwner && <p className="sub" style={{ marginTop: 10 }}>{T('Waiting for the owner. It cannot change until it is approved or returned.', 'بانتظار المالك. لا يمكن تعديلها حتى تُعتمد أو تُعاد.')}</p>}
       </section>
-      {all.length > 0 && <Summary meta={meta} lines={all} months={d.cycle.monthKeys} regionName={regionName} />}
+      {tab === 'budget' && all.length > 0 && <Summary meta={meta} lines={all} months={d.cycle.monthKeys} regionName={regionName} />}
     </div>
   );
 }
@@ -409,6 +420,7 @@ function Summary({ meta, lines, months, regionName }: { meta: Meta; lines: Line[
 // ---------------------------------------------------------------- the company budget
 export function CompanyBudget() {
   const { cycle: cycleId = '' } = useParams();
+  const s = useSession();
   const { lang, txt, err } = useI18n();
   const T = (en: string, ar: string) => (lang === 'ar' ? ar : en);
   const nav = useNavigate();
@@ -441,6 +453,7 @@ export function CompanyBudget() {
         <div className="pills">
           <label className="check"><input type="checkbox" checked={preview} onChange={(x) => setPreview(x.target.checked)} /> {T('Preview with budgets waiting for approval', 'معاينة مع الميزانيات بانتظار الاعتماد')}</label>
           <button type="button" className="btn ghost" onClick={csv}>{T('Download CSV', 'تنزيل CSV')}</button>
+          <Link className="btn ghost" to={`/budget/${cycleId}/variance`}>{T('Budget vs actual', 'الميزانية مقابل الفعلي')}</Link>
           <button type="button" className="btn ghost" onClick={() => nav('/budget')}>{T('Departments', 'الإدارات')}</button>
         </div>
       </div>
@@ -483,6 +496,7 @@ export function CompanyBudget() {
               <tbody>{b.headcount.map((h) => <tr key={h.forDept + h.region}><td>{dName(h.forDept)}</td><td>{rName(h.region)}</td><td className="n num">{h.saudi}</td><td className="n num">{h.nonSaudi}</td></tr>)}</tbody></table></div>}
         </section>
       </div>
+      {s.me.role === 'owner' && !preview && <ToCashPlan cycleId={cycleId} startMonth={r.cycle.startMonth} approvedCount={r.included.filter((x) => x.status === 'approved').length} />}
     </div>
   );
 }
