@@ -49,7 +49,7 @@ export function Shell({ children }: { children: ReactNode }) {
             <button type="button" onClick={flip} aria-pressed={scheme === 'dark'}>{scheme === 'dark' ? t('schemeLight') : t('schemeDark')}</button>
           </div>
           <div className="acct">
-            <div className="who" title={s.me.account.email}>{s.me.account.name}</div>
+            <NavLink className="who" to="/account" title={(lang === 'ar' ? 'حسابي: ' : 'My account: ') + s.me.account.email}>{s.me.account.name}</NavLink>
             <button type="button" onClick={() => s.signOut()}>{t('signOut')}</button>
           </div>
         </div>

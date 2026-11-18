@@ -19,6 +19,7 @@ import { BudgetActuals, BudgetVariance, ComparePlans } from './screens/BudgetCyc
 import { People } from './screens/People';
 import { Companies } from './screens/Companies';
 import { PlanImport } from './screens/PlanImport';
+import { Account } from './screens/Account';
 import { Join } from './screens/Join';
 
 export interface Session {
@@ -96,6 +97,7 @@ export function App() {
           <Routes>
             <Route path="/budget" element={<BudgetHome />} />
             <Route path="/budget/:cycle/:dept" element={<DeptBudget />} />
+            <Route path="/account" element={<Account />} />
             <Route path="*" element={<Navigate to="/budget" replace />} />
           </Routes>
         ) : (
@@ -110,6 +112,7 @@ export function App() {
           <Route path="/people" element={<People />} />
           <Route path="/companies" element={<Companies />} />
           <Route path="/plans/import" element={<PlanImport />} />
+          <Route path="/account" element={<Account />} />
           <Route path="/" element={<Overview />} />
           <Route path="/cash-flow" element={<CashFlow />} />
           <Route path="/analysis" element={<Analysis />} />

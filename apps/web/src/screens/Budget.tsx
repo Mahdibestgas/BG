@@ -115,6 +115,8 @@ export function BudgetHome() {
         </section>
       )}
 
+      {owner && meta.cycles.length === 0 && <QuickStart meta={meta} onDone={(id) => { reload(); setCycleId(id); }} />}
+      {!owner && meta.cycles.length === 0 && <p className="empty">{T('No budget round is open yet. The owner opens one.', 'لا توجد دورة ميزانية مفتوحة بعد. يفتحها المالك.')}</p>}
       {owner && <NewCycle onDone={(id) => { reload(); setCycleId(id); }} />}
       {owner && <Settings meta={meta} onDone={() => { reload(); setMsg({ ok: true, t: T('Settings saved.', 'تم حفظ الإعدادات.') }); }} />}
       {owner && <p className="sub" style={{ marginTop: 18 }}>{T('Department heads join by invitation: ', 'ينضم مديرو الإدارات بدعوة: ')}<Link className="link" to="/people">{T('People and invitations', 'الفريق والدعوات')}</Link></p>}
@@ -134,6 +136,23 @@ function CycleActions({ cycle, onDone }: { cycle: Cycle; onDone: () => void }) {
       <button type="button" className="btn ghost" onClick={() => patch({ status: cycle.status === 'open' ? 'closed' : 'open' })}>{cycle.status === 'open' ? T('Close the round', 'إغلاق الدورة') : T('Reopen the round', 'إعادة فتح الدورة')}</button>
       {e && <span className="msg err">{e}</span>}
     </div>
+  );
+}
+
+/** First visit: one click opens the 2027 round, and every department gets its own screen (Study, Plan, Budget). */
+function QuickStart({ meta, onDone }: { meta: Meta; onDone: (id: string) => void }) {
+  const { lang, txt, err } = useI18n();
+  const T = (en: string, ar: string) => (lang === 'ar' ? ar : en);
+  const [busy, setBusy] = useState(false), [e, setE] = useState('');
+  const open = () => { setBusy(true); setE(''); api<{ id: string }>('POST', '/api/budget/cycles', { name: 'Budget 2027', startMonth: '2027-01', months: 12, deadline: null }).then((r) => onDone(r.id)).catch((x) => setE(err(x.code))).finally(() => setBusy(false)); };
+  return (
+    <section className="card bgt-start">
+      <span className="an-eyebrow">{T('Start here', 'ابدأ من هنا')}</span>
+      <h2>{T('Open the 2027 budget round', 'افتح دورة ميزانية 2027')}</h2>
+      <p className="sub">{T('Each department gets its own screen with three steps: 1 Study, 2 Plan, 3 Budget, month by month and city by city. You then approve or return each one, and the approved ones add up into the company budget.', 'تحصل كل إدارة على شاشتها بثلاث خطوات: 1 الدراسة، 2 الخطة، 3 الميزانية، شهرًا بشهر ومدينة بمدينة. ثم تعتمد كل واحدة أو تعيدها، وتجتمع المعتمدة في ميزانية الشركة.')}</p>
+      <div className="bgt-depts">{meta.pack.departments.map((d) => <div key={d.id} className="bgt-dept"><b>{txt(d.name)}</b><span className="sub">{txt(d.covers)}</span></div>)}</div>
+      <div className="actions"><button type="button" className="btn" disabled={busy} onClick={open}>{busy ? T('Opening…', 'جارٍ الفتح…') : T('Open Budget 2027 (January to December)', 'فتح ميزانية 2027 (يناير إلى ديسمبر)')}</button>{e && <span className="msg err">{e}</span>}</div>
+    </section>
   );
 }
 

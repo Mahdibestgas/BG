@@ -8,6 +8,7 @@ import { decoyHash, hashPassword, LOCK_AFTER, LOCK_MINUTES, SESSION_COOKIE, SESS
 import { DEFAULT_THEME } from './theme';
 import { firebaseWebConfig, verifyFirebaseToken } from './firebase';
 import { requireSecondFactor } from './secondfactor';
+import { mailReady, sendMail } from './mail';
 
 const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,190}\.[a-z]{2,}$/i;
 function email(v: unknown): string {
@@ -205,5 +206,42 @@ export class AuthController {
     await this.db.inTenant(ctx.tenantId, (tx) => tx.auditEntry.create({ data: { tenantId: ctx.tenantId, actorId: acc.id, action: 'password_changed' } }));
     this.setCookie(res, signSession({ sub: acc.id, tid: ctx.tenantId, role: ctx.role, ep: upd.sessionEpoch }));
     return { ok: true };
+  }
+
+  /** What the account page shows: which second steps are on, and whether this server can send email. */
+  @Get('security')
+  async security(@Context() ctx: Ctx) {
+    const a = await this.db.account.findUniqueOrThrow({ where: { id: ctx.accountId }, select: { email: true, totpEnabled: true, emailOtpEnabled: true } });
+    return { ok: true, email: a.email, totp: a.totpEnabled, emailOtp: a.emailOtpEnabled, mailReady: mailReady() };
+  }
+
+  /** A new sign-in email. Needs the current password; every other session ends. */
+  @Post('email')
+  async changeEmail(@Context() ctx: Ctx, @Body() b: any, @Res({ passthrough: true }) res: Response) {
+    const acc = await this.db.account.findUniqueOrThrow({ where: { id: ctx.accountId } });
+    if (!(await verifyPassword(typeof b?.current === 'string' ? b.current : '', acc.passwordHash))) throw new AppError('wrong_current_password', 403);
+    const em = email(b?.email);
+    if (em === acc.email) return { ok: true, email: em };
+    if (await this.db.account.findUnique({ where: { email: em }, select: { id: true } })) throw new AppError('email_taken', 409);
+    const upd = await this.db.account.update({ where: { id: acc.id }, data: { email: em, sessionEpoch: { increment: 1 } } });
+    await this.db.inTenant(ctx.tenantId, (tx) => tx.auditEntry.create({ data: { tenantId: ctx.tenantId, actorId: acc.id, action: 'email_changed', changes: { from: acc.email, to: em } } }));
+    if (mailReady()) await sendMail(acc.email, 'Your Best Gas Budgeting sign-in email was changed', `The sign-in email of your account is now ${em}.\nIf you did not do this, contact your system owner at once.`).catch(() => {});
+    this.setCookie(res, signSession({ sub: acc.id, tid: ctx.tenantId, role: ctx.role, ep: upd.sessionEpoch }));
+    return { ok: true, email: em };
+  }
+
+  /** Email sign-in codes on or off. Needs the password; switching on sends a test email first, so a broken mailbox cannot lock anyone out. */
+  @Post('email-otp')
+  async emailOtp(@Context() ctx: Ctx, @Body() b: any) {
+    const acc = await this.db.account.findUniqueOrThrow({ where: { id: ctx.accountId } });
+    if (!(await verifyPassword(typeof b?.password === 'string' ? b.password : '', acc.passwordHash))) throw new AppError('wrong_current_password', 403);
+    const on = b?.enabled === true;
+    if (on) {
+      if (!mailReady()) throw new AppError('email_not_configured', 503);
+      await sendMail(acc.email, 'Email sign-in codes are on', 'From now on, after your password, Best Gas Budgeting emails you a six-digit code to finish signing in.\nمن الآن يصلك رمز من ستة أرقام بالبريد بعد كلمة المرور لإكمال الدخول.');
+    }
+    await this.db.account.update({ where: { id: acc.id }, data: { emailOtpEnabled: on, emailOtpHash: null, emailOtpExpires: null } });
+    await this.db.inTenant(ctx.tenantId, (tx) => tx.auditEntry.create({ data: { tenantId: ctx.tenantId, actorId: acc.id, action: on ? 'email_otp_enabled' : 'email_otp_disabled' } }));
+    return { ok: true, emailOtp: on };
   }
 }

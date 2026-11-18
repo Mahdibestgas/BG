@@ -27,6 +27,7 @@ function Art() {
 export function SignIn({ onDone }: { onDone: () => void }) {
   const { t, err, lang, setLang } = useI18n();
   const [busy, setBusy] = useState(false), [msg, setMsg] = useState('');
+  const [step2, setStep2] = useState<null | 'app' | 'email'>(null), [creds, setCreds] = useState<{ email: string; password: string }>({ email: '', password: '' });
   const [fb, setFb] = useState<Record<string, string> | null>(null);
   const [signupOpen, setSignupOpen] = useState(true);
   useEffect(() => { api<{ signup?: boolean; firebase: { enabled: boolean; config?: Record<string, string> } }>('GET', '/api/auth/config').then((r) => { setSignupOpen(r.signup !== false); setFb(r.firebase.enabled ? r.firebase.config || null : null); }).catch(() => setFb(null)); }, []);
@@ -42,11 +43,20 @@ export function SignIn({ onDone }: { onDone: () => void }) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     setBusy(true); setMsg('');
+    if (step2) {
+      try { await api('POST', '/api/auth/login', { ...creds, code: String(f.get('code') || '') }); onDone(); }
+      catch (x) { setMsg(x instanceof ApiError && x.code === 'invalid_credentials' ? (lang === 'ar' ? 'الرمز غير صحيح أو انتهت صلاحيته.' : 'That code is not right or has expired.') : err(x instanceof ApiError ? x.code : 'network')); }
+      finally { setBusy(false); }
+      return;
+    }
     try {
       // with Firebase on, try Firebase first; an unknown Firebase user falls back to the company's own password sign-in
       if (fb) { try { await viaFirebase('password', String(f.get('email')), String(f.get('pw'))); onDone(); return; } catch (x) { if (x instanceof ApiError) throw x; /* not a Firebase user: use the password sign-in below */ } }
       await api('POST', '/api/auth/login', { email: f.get('email'), password: f.get('pw') }); onDone(); }
-    catch (x) { setMsg(err(x instanceof ApiError ? x.code : 'network')); }
+    catch (x) {
+      if (x instanceof ApiError && (x.code === 'totp_required' || x.code === 'email_code_required')) { setCreds({ email: String(f.get('email')), password: String(f.get('pw')) }); setStep2(x.code === 'totp_required' ? 'app' : 'email'); }
+      else setMsg(err(x instanceof ApiError ? x.code : 'network'));
+    }
     finally { setBusy(false); }
   }
   return (
@@ -55,8 +65,14 @@ export function SignIn({ onDone }: { onDone: () => void }) {
       <section className="auth-form">
         <form onSubmit={submit} noValidate>
           <h1>{t('signIn')}</h1>
+          {step2 ? <>
+            <p className="sub">{step2 === 'email' ? (lang === 'ar' ? 'أرسلنا رمزًا من ستة أرقام إلى بريدك. صالح لمدة 10 دقائق.' : 'We emailed you a six-digit code. It works for 10 minutes.') : (lang === 'ar' ? 'اكتب الرمز الظاهر في تطبيق المصادقة، أو رمز استرداد.' : 'Type the code your authenticator app shows, or a recovery code.')}</p>
+            <label className="field"><span>{lang === 'ar' ? 'الرمز' : 'Code'}</span><input name="code" inputMode="numeric" autoComplete="one-time-code" autoFocus required /></label>
+            <button type="button" className="link" onClick={() => { setStep2(null); setMsg(''); }}>{lang === 'ar' ? 'رجوع' : 'Back'}</button>
+          </> : <>
           <label className="field"><span>{t('email')}</span><input name="email" type="email" autoComplete="username" required /></label>
           <label className="field"><span>{t('password')}</span><input name="pw" type="password" autoComplete="current-password" required /></label>
+          </>}
           <button className="btn" disabled={busy}>{busy ? t('signingIn') : t('signIn')}</button>
           {fb && <button type="button" className="btn ghost" style={{ marginTop: 8 }} disabled={busy} onClick={google}>{lang === 'ar' ? 'المتابعة باستخدام Google' : 'Continue with Google'}</button>}
           <p className="msg err" role="alert" style={{ minHeight: 22, marginTop: 8 }}>{msg}</p>

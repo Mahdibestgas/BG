@@ -252,3 +252,22 @@ test('a plan file uploads only when every engine check passes, and then hides th
   r = await O.call('POST', '/api/plans/import', { model });
   assert.equal(r.body.version, 2, 'same name: a new version, not a copy');
 });
+
+test('my account: change email needs the password, a taken email is refused, email codes need a mail service', async () => {
+  const D = new Client();
+  await join(O, D, `test-acct-${run}@example.com`, 'finance');
+  const sec = await D.call('GET', '/api/auth/security');
+  assert.equal(sec.status, 200); assert.equal(sec.body.emailOtp, false); assert.equal(sec.body.totp, false);
+  assert.equal((await D.call('POST', '/api/auth/email', { current: 'wrong-password-123', email: `test-new-${run}@example.com` })).status, 403);
+  assert.equal((await D.call('POST', '/api/auth/email', { current: PW, email: `test-o-${run}@example.com` })).status, 409, 'someone else has that email');
+  const ok = await D.call('POST', '/api/auth/email', { current: PW, email: `test-new-${run}@example.com` });
+  assert.equal(ok.status, 201, JSON.stringify(ok.body));
+  assert.equal((await D.call('GET', '/api/auth/me')).body.account.email, `test-new-${run}@example.com`, 'the session carries on');
+  const fresh = new Client();
+  assert.equal((await fresh.call('POST', '/api/auth/login', { email: `test-acct-${run}@example.com`, password: PW })).status, 401, 'the old email no longer signs in');
+  assert.equal((await fresh.call('POST', '/api/auth/login', { email: `test-new-${run}@example.com`, password: PW })).status, 201);
+  const saved = process.env.RESEND_API_KEY; delete process.env.RESEND_API_KEY;
+  try { assert.equal((await D.call('POST', '/api/auth/email-otp', { password: PW, enabled: true })).body.error, 'email_not_configured'); }
+  finally { if (saved) process.env.RESEND_API_KEY = saved; }
+  assert.equal((await D.call('POST', '/api/auth/email-otp', { password: PW, enabled: false })).status, 201, 'turning it off always works');
+});
