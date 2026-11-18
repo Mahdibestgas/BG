@@ -3,7 +3,7 @@ import { useLocation, useSearchParams } from 'react-router-dom';
 import { api, type Forecast, type Txt } from '../api';
 import { useSession } from '../App';
 import { useI18n } from '../i18n';
-import { acc, date, m } from '../format';
+import { acc, date, m, planDays } from '../format';
 import { useForecast } from './Overview';
 import { KhazeenPivot, type KhzCity } from '../ui/KhazeenPivot';
 import { RentBreakdown, type RentBlock, type PlanMonthInfo } from '../ui/RentBreakdown';
@@ -102,7 +102,7 @@ export function Analysis() {
       if (!months.has(key)) months.set(key, { label: date(w.start, lang, { month: 'long', year: 'numeric' }), idx: Number(key.slice(5, 7)) - 1, w: [] });
       months.get(key)!.w.push(i);
     });
-    const monthsPerPlan = (N * 7) / 30.4375;
+    const monthsPerPlan = planDays(f.weeks) / 30.4375;
     let cum = 0, rMax = Infinity;
     const r0 = G / R;
     f.l1.closing.forEach((c, i) => { cum += rec[i]; const r = r0 + c / cum; if (r < rMax) rMax = r; });
@@ -232,7 +232,7 @@ export function Analysis() {
     return { ...c, pl, plan, gap, status };
   }) : [];
   const plRevenueDay = cc ? (avg3(cc.revenue) * 1.15) / 30.4 : 0;
-  const planRecDay = R / (N * 7);
+  const planRecDay = R / planDays(f.weeks);
   const plCogsRatio = cc ? (cc.cogs[cc.cogs.length - 1] + cc.cogs[cc.cogs.length - 2] + cc.cogs[cc.cogs.length - 3]) / (cc.revenue[cc.revenue.length - 1] + cc.revenue[cc.revenue.length - 2] + cc.revenue[cc.revenue.length - 3]) : 0;
   const plCashMargin = cc ? avg3(cc.cashProfit) / avg3(cc.revenue) : 0;
   const gasGapMonth = cc ? (plCogsRatio - r0) * (R / monthsPerPlan) : 0;
@@ -251,7 +251,7 @@ export function Analysis() {
     const gasStep = pl.gas - plan.gas, runStep = pl.run - plan.run;
     const other = planOpm - plOpm - gasStep - runStep;
     const reported = (opM / R) * 100;
-    const days = N * 7;
+    const days = planDays(f.weeks);
     return { pl, plOpm, plan, planOpm, gasStep, runStep, other, reported, vatBasis: reported - planOpm,
       gasNeeded: 100 - pl.run - plOpm,                                         // gas % of receipts that gives the P&L margin, keeping the plan's running costs
       salesNeededDay: ((G + 1.15 * O) / (1 - plOpm / 100)) / days, salesDay: R / days, gasDayNeeded: (R * (100 - plOpm) / 100 - 1.15 * O) / days, gasDay: G / days };
@@ -260,7 +260,7 @@ export function Analysis() {
   // ---- cards
   const kpis: Array<{ k: Focus; label: string; v: string; sub: string; tone: string }> = [
     { k: 'open', label: T('Opening cash', 'الرصيد الافتتاحي'), v: m(opening), sub: date(f.weeks[0].start, lang, { day: 'numeric', month: 'long' }), tone: 'brand' },
-    { k: 'rec', label: T('Receipts', 'المقبوضات'), v: m(R), sub: T(`${m(R / (N * 7))} a day`, `${m(R / (N * 7))} يوميًا`), tone: 'rec' },
+    { k: 'rec', label: T('Receipts', 'المقبوضات'), v: m(R), sub: T(`${m(R / planDays(f.weeks))} a day`, `${m(R / planDays(f.weeks))} يوميًا`), tone: 'rec' },
     { k: 'gas', label: T('Gas purchases', 'مشتريات الغاز'), v: m(G), sub: T(`${pct((G / R) * 100)} of receipts`, `${pct((G / R) * 100)} من المقبوضات`), tone: 'pay' },
     { k: 'opex', label: T('Running costs', 'المصاريف التشغيلية'), v: m(O), sub: T(`${pct((O / R) * 100)} of receipts`, `${pct((O / R) * 100)} من المقبوضات`), tone: 'pay' },
     { k: 'oblig', label: T('VAT, loan, other', 'ضريبة وقرض وأخرى'), v: m(B + X), sub: T(`${m((B + X) / monthsPerPlan)} a month`, `${m((B + X) / monthsPerPlan)} شهريًا`), tone: 'pay' },
@@ -388,7 +388,7 @@ export function Analysis() {
             <tr className="sub2"><td>{T('= the plan’s cash margin as shown', '= الهامش النقدي للخطة كما يظهر')}</td><td className="num"><b>{mb.reported.toFixed(1)}%</b></td><td /></tr>
           </tbody></table>
           <div className="an-callouts" style={{ marginTop: 14 }}>
-            <div className="bad"><span>{T('To match the P&L, with your sales', 'للتطابق مع الأرباح والخسائر بمبيعاتك')}</span><b className="num">{m(mb.gasDay)} → {m(mb.gasDayNeeded)}</b><em>{T(`gas purchases a day would have to rise from ${mb.plan.gas.toFixed(1)}% to about ${mb.gasNeeded.toFixed(1)}% of sales, about ${m((mb.gasDayNeeded - mb.gasDay) * N * 7)} more over the plan.`, `يجب أن ترتفع مشتريات الغاز اليومية من ${mb.plan.gas.toFixed(1)}% إلى حوالي ${mb.gasNeeded.toFixed(1)}% من المبيعات، أي حوالي ${m((mb.gasDayNeeded - mb.gasDay) * N * 7)} إضافية خلال الخطة.`)}</em></div>
+            <div className="bad"><span>{T('To match the P&L, with your sales', 'للتطابق مع الأرباح والخسائر بمبيعاتك')}</span><b className="num">{m(mb.gasDay)} → {m(mb.gasDayNeeded)}</b><em>{T(`gas purchases a day would have to rise from ${mb.plan.gas.toFixed(1)}% to about ${mb.gasNeeded.toFixed(1)}% of sales, about ${m((mb.gasDayNeeded - mb.gasDay) * planDays(f.weeks))} more over the plan.`, `يجب أن ترتفع مشتريات الغاز اليومية من ${mb.plan.gas.toFixed(1)}% إلى حوالي ${mb.gasNeeded.toFixed(1)}% من المبيعات، أي حوالي ${m((mb.gasDayNeeded - mb.gasDay) * planDays(f.weeks))} إضافية خلال الخطة.`)}</em></div>
             <div className="bad"><span>{T('Or, with your purchases', 'أو بمشترياتك')}</span><b className="num">{m(mb.salesDay)} → {m(mb.salesNeededDay)}</b><em>{T('sales a day would have to be lower, which is close to what the P&L and the bank show for recent months.', 'يجب أن تكون المبيعات اليومية أقل، وهو قريب مما تُظهره الأرباح والخسائر والبنك للأشهر الأخيرة.')}</em></div>
           </div>
           <div className="mb-act"><button type="button" className="btn" onClick={() => { setDGas(Math.min(10, Math.round((mb.gasNeeded - mb.plan.gas) * 4) / 4)); document.getElementById('whatif')?.scrollIntoView({ behavior: 'smooth' }); }}>{T('Show the cash if gas follows the P&L', 'اعرض النقد إذا تبع الغاز الأرباح والخسائر')}</button></div>
@@ -398,7 +398,7 @@ export function Analysis() {
 
       {cc?.compare && cc.compare.months.length > 0 && (() => {
         const cm = cc.compare!.months, oct = cm[cm.length - 1], nv = cc.compare!.nov;
-        const planSales = R / (N * 7), planGas = G / (N * 7);
+        const planSales = R / planDays(f.weeks), planGas = G / planDays(f.weeks);
         const pct1 = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(1) + '%' : '-');
         const chg = (a: number, b: number) => (b ? ((a / b - 1) * 100 >= 0 ? '+' : '') + ((a / b - 1) * 100).toFixed(0) + '%' : '-');
         const row = (en: string, ar: string, vals: (c: CmpMonth) => [number, number, string?]) => (

@@ -20,7 +20,7 @@ export function runForecast<M extends CoreModel>(model: M, template: Template<M>
   if (template.id !== model.template) throw new EngineError('template_mismatch');
   const v2 = !!(model.compat && model.compat.v2);
   const N = model.meta.weeks || 13;
-  const cal = buildCalendar(model.meta.startDate, N, !!model.meta.anyStartDay);
+  const cal = buildCalendar(model.meta.startDate, N, !!model.meta.anyStartDay, model.meta.endDate);
   const categories = template.categories;
   const catIds = new Set(categories.map((c) => c.id));
   const items: Item[] = [];

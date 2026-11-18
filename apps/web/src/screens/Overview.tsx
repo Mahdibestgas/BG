@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api, ApiError, type Forecast, type Txt } from '../api';
 import { useSession } from '../App';
 import { useI18n } from '../i18n';
-import { acc, currentWeek, date, m } from '../format';
+import { acc, currentWeek, date, m, planDays } from '../format';
 import { Bars, Runway } from '../ui/charts';
 import { KhazeenPivot, type KhzCity } from '../ui/KhazeenPivot';
 import type { RentBlock } from '../ui/RentBreakdown';
@@ -86,10 +86,10 @@ export function Overview() {
     const N = f.weeks.length, L = (id: string) => f.l2[id] || new Array(N).fill(0);
     const grp = (ids: string[]) => Array.from({ length: N }, (_, i) => ids.reduce((t, id) => t + (L(id)[i] || 0), 0));
     const rec = f.l1.receipts, pay = f.l1.payments, net = f.l1.net, close = f.l1.closing;
-    const R = sum(rec), P = sum(pay), mo = (N * 7) / 30.4375;
+    const R = sum(rec), P = sum(pay), mo = planDays(f.weeks) / 30.4375;
     const gas = sum(grp(['P_KHAZEEN']));
     const months = new Map<string, { label: string; w: number[] }>();
-    f.weeks.forEach((w, i) => { const k = w.start.slice(0, 7); if (!months.has(k)) months.set(k, { label: date(w.start, lang, { month: 'long' }), w: [] }); months.get(k)!.w.push(i); });
+    f.weeks.forEach((w, i) => { const k = w.start.slice(0, 7); if (!months.has(k)) months.set(k, { label: date(w.start, lang, planDays(f.weeks) > 330 ? { month: 'short', year: '2-digit' } : { month: 'long' }), w: [] }); /* a plan longer than a year shows each month with its year */ months.get(k)!.w.push(i); });
     const parts = SLICES.map((sl) => ({ k: sl.k, v: sum(grp(sl.ids)), col: sl.col, label: lang === 'ar' ? sl.ar : sl.en, link: sl.link })).filter((p) => p.v > 0.5);
     return { N, L, grp, rec, pay, net, close, R, P, mo, gas, months, parts };
   }, [f, lang]);
@@ -105,7 +105,7 @@ export function Overview() {
   const heavy = pay.map((v, i) => [v, i] as const).sort((a, b) => b[0] - a[0])[0][1];
   const wf = sea?.weekFactor && sea.weekFactor.length === N ? sea.weekFactor : null;
   const avg3 = (v: number[]) => (v.length >= 3 ? (v[v.length - 1] + v[v.length - 2] + v[v.length - 3]) / 3 : 0);
-  const plRevDay = cc ? (avg3(cc.revenue) * 1.15) / 30.4 : 0, planDay = R / (N * 7);
+  const plRevDay = cc ? (avg3(cc.revenue) * 1.15) / 30.4 : 0, planDay = R / planDays(f.weeks);
   const plCogs = cc ? avg3(cc.cogs) / Math.max(1, avg3(cc.revenue)) : 0;
   const gasGap = cc ? (plCogs - gas / R) * (R / mo) : 0;
   const outVat = (R * 0.15) / 1.15, inVat = ((gas + sum(L('P_SUPPLIERS')) + sum(L('P_RENT')) + sum(L('P_UTILITIES'))) * 0.15) / 1.15, netVat = (outVat - inVat) / mo;
@@ -129,7 +129,7 @@ export function Overview() {
     { l: T(`Opening, ${date(asOf, lang)}`, `الافتتاحي، ${date(asOf, lang)}`), v: m(open), s: T('bank balances', 'أرصدة البنوك'), tone: 'brand', go: () => go('open') },
     { l: T('Closing cash', 'النقد الختامي'), v: m(end), s: T(`${end >= open ? '+' : '-'}${m(Math.abs(end - open))} over ${N} weeks`, `${end >= open ? '+' : '-'}${m(Math.abs(end - open))} خلال ${N} أسبوعًا`), tone: end >= open ? 'rec' : 'pay', go: () => go('close') },
     { l: T('Lowest cash', 'أدنى نقد'), v: m(h.lowestCash), s: f.weeks[lowW].label + ' · ' + date(f.weeks[lowW].start, lang), tone: h.lowestCash < 0 ? 'pay' : 'brand', go: () => go('close') },
-    { l: T('Sales a day', 'المبيعات يوميًا'), v: m(R / (N * 7)), s: T('incl. VAT, plan average', 'شامل الضريبة، متوسط الخطة'), tone: 'rec', go: () => go('rec') },
+    { l: T('Sales a day', 'المبيعات يوميًا'), v: m(R / planDays(f.weeks)), s: T('incl. VAT, plan average', 'شامل الضريبة، متوسط الخطة'), tone: 'rec', go: () => go('rec') },
     { l: T('Gas cost ratio', 'نسبة تكلفة الغاز'), v: pct((gas / R) * 100), s: T(`${m(gas / mo)} a month`, `${m(gas / mo)} شهريًا`), tone: 'pay', go: () => go('gas') },
     { l: T('Cash margin', 'الهامش النقدي'), v: pct((opM / R) * 100), s: T('after gas and running costs', 'بعد الغاز والمصاريف'), tone: 'rec', go: () => go('opex') }
   ];
@@ -258,10 +258,10 @@ export function Overview() {
         <section className="card an-in">
           <h2>{T('Month by month', 'شهرًا بشهر')}</h2>
           <div className="ov-months">
-            {[...months.values()].map((mo) => {
+            {[...months.entries()].map(([mk, mo]) => {
               const r = sum(mo.w.map((i) => rec[i])), p = sum(mo.w.map((i) => pay[i])), n = r - p, e = close[mo.w[mo.w.length - 1]];
               return (
-                <button type="button" key={mo.label} className="mc" onClick={() => go()}>
+                <button type="button" key={mk} className="mc" onClick={() => go()}>
                   <span className="mn">{mo.label}</span><span className="e num">{m(e)}</span>
                   <span className={'n num ' + (n >= 0 ? 'up' : 'down')}>{n >= 0 ? '+' : '-'}{m(Math.abs(n))}</span>
                   <span className="bar"><i style={{ width: Math.min(100, (r / Math.max(r, p)) * 100) + '%', background: 'var(--rec)' }} /><i style={{ width: Math.min(100, (p / Math.max(r, p)) * 100) + '%', background: 'var(--pay)' }} /></span>

@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
 import { useSession } from '../App';
 import { useI18n } from '../i18n';
-import { acc, date, m } from '../format';
+import { acc, date, m, planDays } from '../format';
 import { useForecast } from './Overview';
 
 interface Acct { code: string; name: string; section: 'revenue' | 'cogs' | 'opex' | 'other'; monthly: number[] }
@@ -70,7 +70,7 @@ export function Pnl() {
     const isoOf = (d: Date) => d.toISOString().slice(0, 10);
     const start = new Date(f.weeks[0].start + 'T00:00:00Z');
     const days: Array<{ iso: string; w: number; mi: number }> = [];
-    for (let i = 0; i < N * 7; i++) {
+    for (let i = 0; i < planDays(f.weeks); i++) {
       const d = new Date(start.getTime() + i * 864e5), iso = isoOf(d);
       const mi = mdl.months!.findIndex((mo) => iso >= mo.from && iso <= mo.to);
       if (mi >= 0) days.push({ iso, w: Math.floor(i / 7), mi });
@@ -187,7 +187,7 @@ export function Pnl() {
 
       <div className="an-kpis">
         {[
-          { l: T('Revenue (ex VAT)', 'الإيراد (بدون ضريبة)'), v: m(REV), s: T(`${m(REV / (f.weeks.length * 7))} a day`, `${m(REV / (f.weeks.length * 7))} يوميًا`), t: 'rec' },
+          { l: T('Revenue (ex VAT)', 'الإيراد (بدون ضريبة)'), v: m(REV), s: T(`${m(REV / planDays(f.weeks))} a day`, `${m(REV / planDays(f.weeks))} يوميًا`), t: 'rec' },
           { l: T('Gross profit', 'مجمل الربح'), v: m(REV - COGS), s: T(`${((1 - COGS / REV) * 100).toFixed(1)}% margin`, `هامش ${((1 - COGS / REV) * 100).toFixed(1)}%`), t: 'brand' },
           { l: T('Net profit', 'صافي الربح'), v: m(NP), s: T(`${((NP / REV) * 100).toFixed(1)}% of revenue`, `${((NP / REV) * 100).toFixed(1)}% من الإيراد`), t: NP >= 0 ? 'rec' : 'pay' },
           { l: T('Cash profit (non-cash added back)', 'الربح النقدي (بعد إضافة غير النقدي)'), v: m(NP + DAP), s: T(`${(((NP + DAP) / REV) * 100).toFixed(1)}% of revenue`, `${(((NP + DAP) / REV) * 100).toFixed(1)}% من الإيراد`), t: 'rec' },

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api, ApiError } from '../api';
 import { useSession } from '../App';
 import { useI18n } from '../i18n';
-import { date, m } from '../format';
+import { date, m, planDays } from '../format';
 import { useForecast } from './Overview';
 
 interface Approval { id: string; at: string; changes: { planName: string; version: number; approvedBy: string; meeting: string; resolution: string; notes?: string; numbers: { opening: number; closing: number; lowest: number; receipts: number; payments: number; weeks: number; start: string } } }
@@ -51,7 +51,7 @@ export function Board() {
   const last = apps[0], cur = s.plan.version;
   const sea = model.seasonality, cc = model.crossCheck, rent = model.rent;
   const avg3 = (v: number[]) => (v.length >= 3 ? (v[v.length - 1] + v[v.length - 2] + v[v.length - 3]) / 3 : 0);
-  const plDay = cc ? (avg3(cc.revenue) * 1.15) / 30.4 : 0, planDay = R / (N * 7);
+  const plDay = cc ? (avg3(cc.revenue) * 1.15) / 30.4 : 0, planDay = R / planDays(f.weeks);
   const plCogs = cc ? avg3(cc.cogs) / Math.max(1, avg3(cc.revenue)) : 0;
   const branch = model.opening?.bankAccounts?.find((a) => /فرع|branch/i.test(a.name));
   const cities = model.khazeen?.cities || [];
@@ -107,7 +107,7 @@ export function Board() {
 
         <h3 className="an-h3">{T('1. The board is asked to approve', '1. يُطلب من المجلس اعتماد')}</h3>
         <ol className="bd-res">
-          <li>{T(`The 16-week cash projection from ${date(f.weeks[0].start, lang, { day: 'numeric', month: 'long' })} to ${date(end0, lang, { day: 'numeric', month: 'long', year: 'numeric' })}: opening cash ${m(open)}, closing cash ${m(end)}, receipts ${m(R)} and payments ${m(P)}.`, `توقعات النقد لمدة ${N} أسبوعًا من ${date(f.weeks[0].start, lang, { day: 'numeric', month: 'long' })} إلى ${date(end0, lang, { day: 'numeric', month: 'long', year: 'numeric' })}: نقد افتتاحي ${m(open)} ونقد ختامي ${m(end)} ومقبوضات ${m(R)} ومدفوعات ${m(P)}.`)}</li>
+          <li>{T(`The ${N}-week cash projection from ${date(f.weeks[0].start, lang, { day: 'numeric', month: 'long' })} to ${date(end0, lang, { day: 'numeric', month: 'long', year: 'numeric' })}: opening cash ${m(open)}, closing cash ${m(end)}, receipts ${m(R)} and payments ${m(P)}.`, `توقعات النقد لمدة ${N} أسبوعًا من ${date(f.weeks[0].start, lang, { day: 'numeric', month: 'long' })} إلى ${date(end0, lang, { day: 'numeric', month: 'long', year: 'numeric' })}: نقد افتتاحي ${m(open)} ونقد ختامي ${m(end)} ومقبوضات ${m(R)} ومدفوعات ${m(P)}.`)}</li>
           <li>{T(`Gas purchases from KHAZEEN of ${m(G)} (${cities.map((c) => `${c.en} ${m(sum(c.daily) + sum(c.instalments))}`).join(', ')}).`, `مشتريات الغاز من خزين بمبلغ ${m(G)} (${cities.map((c) => `${c.ar} ${m(sum(c.daily) + sum(c.instalments))}`).join('، ')}).`)}</li>
           <li>{T(`Capital purchases of ${m(capex)}: two truck heads and 15 Dyna trucks.`, `مشتريات رأسمالية بمبلغ ${m(capex)}: رأسا شاحنتين و15 شاحنة ديانا.`)}</li>
           <li>{T(`Scheduled payments of VAT ${m(vat)}, loan instalments ${m(loan)} and rent ${m(sum(D.L('P_RENT')))}.`, `الدفعات المجدولة: ضريبة القيمة المضافة ${m(vat)} وأقساط القرض ${m(loan)} والإيجارات ${m(sum(D.L('P_RENT')))}.`)}</li>
@@ -119,7 +119,7 @@ export function Board() {
           <div className="an-kpi sm t-brand"><span className="l">{T('Opening cash', 'النقد الافتتاحي')}</span><span className="v num">{m(open)}</span></div>
           <div className="an-kpi sm t-rec"><span className="l">{T('Closing cash', 'النقد الختامي')}</span><span className="v num">{m(end)}</span><span className="s">{end >= open ? '+' : '-'}{m(Math.abs(end - open))}</span></div>
           <div className="an-kpi sm t-brand"><span className="l">{T('Lowest cash', 'أدنى نقد')}</span><span className="v num">{m(low)}</span><span className="s">{f.weeks[lowW].label} · {date(f.weeks[lowW].start, lang)}</span></div>
-          <div className="an-kpi sm t-rec"><span className="l">{T('Receipts', 'المقبوضات')}</span><span className="v num">{m(R)}</span><span className="s">{m(R / (N * 7))} {T('a day', 'يوميًا')}</span></div>
+          <div className="an-kpi sm t-rec"><span className="l">{T('Receipts', 'المقبوضات')}</span><span className="v num">{m(R)}</span><span className="s">{m(R / planDays(f.weeks))} {T('a day', 'يوميًا')}</span></div>
           <div className="an-kpi sm t-pay"><span className="l">{T('Gas purchases', 'مشتريات الغاز')}</span><span className="v num">{m(G)}</span><span className="s">{pct((G / R) * 100)}</span></div>
           <div className="an-kpi sm t-rec"><span className="l">{T('Cash margin', 'الهامش النقدي')}</span><span className="v num">{pct(((R - G - opex) / R) * 100)}</span><span className="s">{T('after gas and running costs', 'بعد الغاز والمصاريف')}</span></div>
         </div>

@@ -41,6 +41,11 @@ export function date(iso: string, lang: string, opts: Intl.DateTimeFormatOptions
   return new Intl.DateTimeFormat(lang === 'ar' ? 'ar-SA-u-ca-gregory-nu-latn' : 'en-GB', { timeZone: 'UTC', ...opts }).format(new Date(Date.UTC(y, mo - 1, d)));
 }
 /** Index of the week containing today (Riyadh), or -1. */
+/** Days the plan covers: the last week may be a short one (a plan that stops on 31 Dec). */
+export function planDays(weeks: Array<{ start: string; end: string }>): number {
+  return weeks.length ? Math.round((Date.parse(weeks[weeks.length - 1].end) - Date.parse(weeks[0].start)) / 864e5) + 1 : 0;
+}
+
 export function currentWeek(weeks: Array<{ start: string; end: string }>): number {
   const now = new Date(Date.now() + 3 * 3600 * 1000).toISOString().slice(0, 10);
   return weeks.findIndex((w) => now >= w.start && now <= w.end);

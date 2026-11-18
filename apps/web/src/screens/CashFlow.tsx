@@ -2,7 +2,7 @@ import { Fragment, useEffect, useState } from 'react';
 import { api, type Forecast, type Item } from '../api';
 import { useSession } from '../App';
 import { useI18n } from '../i18n';
-import { currentWeek, date, k, m } from '../format';
+import { currentWeek, date, k, m, planDays } from '../format';
 import { useForecast } from './Overview';
 
 type Units = 'k' | 'full';
@@ -48,14 +48,14 @@ export function CashFlow() {
   if (exact && pm?.months) {
     pm.months.forEach((mo) => {
       const first = Number(mo.from.slice(8, 10)) === 1, eom = new Date(Date.UTC(Number(mo.to.slice(0, 4)), Number(mo.to.slice(5, 7)), 0)).getUTCDate() === Number(mo.to.slice(8, 10));
-      mcols.push({ key: mo.key, label: date(mo.from, lang, { month: 'long', year: 'numeric' }), short: date(mo.from, lang, { month: 'short' }), days: mo.days, w: [],
+      mcols.push({ key: mo.key, label: date(mo.from, lang, { month: 'long', year: 'numeric' }), short: date(mo.from, lang, (pm.months?.length ?? 0) > 12 ? { month: 'short', year: '2-digit' } : { month: 'short' }), days: mo.days, w: [],
         sub: first && eom ? L(`${mo.days} days`, `${mo.days} يومًا`) : `${date(mo.from, lang, { day: 'numeric', month: 'short' })} – ${date(mo.to, lang, { day: 'numeric', month: 'short' })} · ${L(`${mo.days} days`, `${mo.days} يومًا`)}` });
     });
   } else {
     f.weeks.forEach((w, i) => {
       const key = w.start.slice(0, 7); let c = mcols.find((x) => x.key === key);
       if (!c) { c = { key, label: date(w.start, lang, { month: 'long', year: 'numeric' }), short: date(w.start, lang, { month: 'short' }), sub: '', days: 0, w: [] }; mcols.push(c); }
-      c.w.push(i); c.days += 7; c.sub = L(`${c.w.length} weeks`, `${c.w.length} أسابيع`);
+      c.w.push(i); c.days += planDays([w]); c.sub = L(`${c.w.length} weeks`, `${c.w.length} أسابيع`);
     });
   }
   const M = mcols.length;
@@ -144,8 +144,8 @@ export function CashFlow() {
   const cat = (id: string) => (exact ? lineM((l) => l.cat === id) : agg(f.l2[id] || new Array(N).fill(0), 'flow'));
   const gasM = cat('P_KHAZEEN'), payrollM = cat('P_PAYROLL'), rentM = cat('P_RENT'), loanM = cat('P_LOAN'), vatM = cat('P_VAT'), capexM = cat('P_CAPEX');
   const opexM = mcols.map((_, j) => sum(OPEX.map((id) => cat(id)[j])));
-  const cols = [...mcols.map((c, j) => ({ label: c.short, days: c.days || 30, rec: recM[j], pay: payM[j], gas: gasM[j], payroll: payrollM[j], rent: rentM[j], opex: opexM[j], loan: loanM[j], vat: vatM[j], capex: capexM[j], net: netM[j], close: closeM[j] })),
-    { label: L('Plan', 'الخطة'), days: sum(mcols.map((c) => c.days || 30)), rec: sum(recM), pay: sum(payM), gas: sum(gasM), payroll: sum(payrollM), rent: sum(rentM), opex: sum(opexM), loan: sum(loanM), vat: sum(vatM), capex: sum(capexM), net: sum(netM), close: closeM[M - 1] }];
+  const cols = [...mcols.map((c, j) => ({ key: c.key, label: c.short, days: c.days || 30, rec: recM[j], pay: payM[j], gas: gasM[j], payroll: payrollM[j], rent: rentM[j], opex: opexM[j], loan: loanM[j], vat: vatM[j], capex: capexM[j], net: netM[j], close: closeM[j] })),
+    { key: 'plan', label: L('Plan', 'الخطة'), days: sum(mcols.map((c) => c.days || 30)), rec: sum(recM), pay: sum(payM), gas: sum(gasM), payroll: sum(payrollM), rent: sum(rentM), opex: sum(opexM), loan: sum(loanM), vat: sum(vatM), capex: sum(capexM), net: sum(netM), close: closeM[M - 1] }];
   type Col = (typeof cols)[number];
   const opc = (c: Col) => c.rec - c.gas - c.opex;
   const ratios: Array<{ id: string; label: string; v: (c: Col) => number | null; fmt: 'pct' | 'x' | 'sar'; good: 1 | -1 }> = [
@@ -229,7 +229,7 @@ export function CashFlow() {
         {showRatios && (
           <div className="khz-scroll">
             <table className="an-tbl">
-              <thead><tr><th>{L('Ratio', 'النسبة')}</th>{cols.map((c) => <th key={c.label}>{c.label}</th>)}<th>{L('Change, first to last month', 'التغير من أول شهر إلى آخر شهر')}</th></tr></thead>
+              <thead><tr><th>{L('Ratio', 'النسبة')}</th>{cols.map((c) => <th key={c.key}>{c.label}</th>)}<th>{L('Change, first to last month', 'التغير من أول شهر إلى آخر شهر')}</th></tr></thead>
               <tbody>{ratios.map((r) => {
                 const vs = cols.map((c) => r.v(c)), a = vs[0], b = vs[M - 1];
                 const ch = a === null || b === null ? null : r.fmt === 'pct' ? b - a : a ? ((b - a) / Math.abs(a)) * 100 : null;

@@ -44,3 +44,15 @@ test('a history plan refuses malformed lines and unknown categories', () => {
     (e: unknown) => e instanceof EngineError && e.code === 'unknown_category:R_NOPE');
   assert.throws(() => forecast(base([{ cat: 'R_CASH', l3: 'x', label: { en: 'x', ar: 'x' }, values: w(1, NaN), actualWeeks: 0, method: { en: '', ar: '' }, confidence: 'High' }])), /history_line_value/);
 });
+
+test('an end date inside the last week makes it a short week, and nothing is planned after it', () => {
+  const m = base([{ cat: 'R_CASH', l3: 'cash', label: { en: 'Cash', ar: 'نقد' }, values: w(700, 700), actualWeeks: 0, method: { en: '-', ar: '-' }, confidence: 'High' }]);
+  m.meta.endDate = '2027-01-28';                       // week 13 runs 24-30 Jan 2027: stop on Thursday 28th
+  const r = forecast(m);
+  assert.ok(r.checks.every((c) => c.ok));
+  assert.equal(r.calendar.weeks[12].endIso, '2027-01-28');
+  assert.equal(r.calendar.months[r.calendar.months.length - 1].key, '2027-01');
+  assert.equal(r.calendar.months[r.calendar.months.length - 1].weights[12], 1);   // the short week sits wholly in January
+  m.meta.endDate = '2027-02-05';
+  assert.throws(() => forecast(m), (e: unknown) => e instanceof EngineError && e.code === 'end_date_outside_last_week');
+});

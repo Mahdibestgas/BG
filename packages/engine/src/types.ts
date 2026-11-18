@@ -43,7 +43,7 @@ export interface Schedule {
 
 /** What every plan has, whatever its industry. */
 export interface CoreModel {
-  meta: { name?: string; demo?: boolean; currency?: string; startDate: string; weeks?: number; anyStartDay?: boolean };
+  meta: { name?: string; demo?: boolean; currency?: string; startDate: string; weeks?: number; anyStartDay?: boolean; endDate?: string };   // endDate: the study may stop inside its last week
   tax: { vatRate: number; vatFiling: number; vatDueDays: number; opexVatShare?: number; zakatRate?: number; zakatBase?: number };
   financing: {
     openingCash: number; openingVatPayable: number; openingVatDueDate?: string | null;

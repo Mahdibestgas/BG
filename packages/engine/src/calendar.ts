@@ -18,8 +18,9 @@ export class EngineError extends Error {
   constructor(public code: string) { super(code); }
 }
 
-/** Weeks run from the start date. Excel-model plans must start on a Sunday; plans built from bank history may start on any day. */
-export function buildCalendar(startIso: string, nWeeks: number, anyStartDay = false): Calendar {
+/** Weeks run from the start date. Excel-model plans must start on a Sunday; plans built from bank history may start on any day.
+ *  An end date inside the last week makes that week a short one: nothing is planned after it. */
+export function buildCalendar(startIso: string, nWeeks: number, anyStartDay = false, endIso?: string | null): Calendar {
   if (!isRealDate(startIso)) throw new EngineError('invalid_start_date');
   const s = dayNum(startIso);
   if (!anyStartDay && new Date(s * 86400000).getUTCDay() !== 0) throw new EngineError('start_not_sunday');
@@ -27,12 +28,19 @@ export function buildCalendar(startIso: string, nWeeks: number, anyStartDay = fa
   for (let i = 0; i < nWeeks; i++) {
     weeks.push({ i, label: 'W' + (i + 1), start: s + 7 * i, end: s + 7 * i + 6, startIso: isoOf(s + 7 * i), endIso: isoOf(s + 7 * i + 6) });
   }
+  if (endIso) {
+    const last = weeks[nWeeks - 1];
+    if (!isRealDate(endIso)) throw new EngineError('invalid_end_date');
+    const e = dayNum(endIso);
+    if (e < last.start || e > last.end) throw new EngineError('end_date_outside_last_week');
+    last.end = e; last.endIso = endIso;
+  }
   const first = ymOf(s), lastDay = weeks[nWeeks - 1].end, months: Month[] = [];
   for (let y = first.y, m = first.m; monthStart(y, m) <= lastDay; m++) {
     if (m === 12) { m = 0; y++; }
     const ms = monthStart(y, m), me = monthEnd(y, m);
     months.push({ y, m, start: ms, end: me, key: isoOf(ms).slice(0, 7),
-      weights: weeks.map((w) => Math.max(0, Math.min(w.end, me) - Math.max(w.start, ms) + 1) / 7) });
+      weights: weeks.map((w) => Math.max(0, Math.min(w.end, me) - Math.max(w.start, ms) + 1) / (w.end - w.start + 1)) });
   }
   return { start: s, end: lastDay, weeks, months };
 }
