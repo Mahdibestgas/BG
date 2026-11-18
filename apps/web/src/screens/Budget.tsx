@@ -7,6 +7,7 @@ import { useI18n } from '../i18n';
 import { acc, date, m } from '../format';
 import { EMPTY_PLAN, EMPTY_STUDY, type DeptPlan, type Study } from '@cf13/budget';
 import { PlanEditor, StudyEditor, ToCashPlan } from './BudgetCycle';
+import { CountUp, deptColor, Donut, HBars, MonthColumns } from '../ui/bgtCharts';
 
 // ---------------------------------------------------------------- shared
 export interface Cycle { id: string; name: string; startMonth: string; months: number; monthKeys: string[]; status: 'open' | 'closed'; deadline: string | null; version: number }
@@ -423,9 +424,13 @@ function Summary({ meta, lines, months, regionName }: { meta: Meta; lines: Line[
     l.amounts.forEach((v, k) => { a[k] += v; }); byItem.set(l.item, a);
     byRegion.set(l.region, (byRegion.get(l.region) || 0) + sum(l.amounts));
   }
+  const kindOf = (id: string) => meta.pack.items.find((i) => i.id === id)?.kind;
+  const rev = months.map((_, k) => sum(lines.filter((l) => kindOf(l.item) === 'revenue').map((l) => l.amounts[k])));
+  const cost = months.map((_, k) => sum(lines.filter((l) => { const x = kindOf(l.item); return x !== 'revenue'; }).map((l) => l.amounts[k])));
   return (
     <section className="card" style={{ marginTop: 20 }}>
       <h2>{T('Summary', 'الملخص')}</h2>
+      <MonthColumns months={months.map((k) => monthLabel(k, lang))} revenue={rev} costs={cost} labels={{ revenue: T('Revenue', 'الإيرادات'), costs: T('Costs and capex', 'التكاليف والرأسمالية') }} />
       <div className="ledger-wrap" style={{ marginTop: 12 }}><table className="ledger">
         <thead><tr><th className="lab">{T('Item', 'البند')}</th>{months.map((k) => <th key={k}>{monthLabel(k, lang)}</th>)}<th>{T('Total', 'الإجمالي')}</th></tr></thead>
         <tbody>{[...byItem.entries()].map(([id, a]) => { const it = meta.pack.items.find((x) => x.id === id); return <tr key={id}><td className="lab">{txt(it?.name)} <span className="sub">· {it ? txt(KIND_NAMES[it.kind]) : ''}</span></td>{a.map((v, k) => <td key={k}>{acc(v)}</td>)}<td><b>{acc(sum(a))}</b></td></tr>; })}</tbody>
@@ -477,12 +482,22 @@ export function CompanyBudget() {
         </div>
       </div>
       <div className="an-kpis">
-        <div className="an-kpi t-rec"><span className="l">{T('Revenue', 'الإيرادات')}</span><span className="v num">{m(b.kpi.revenue)}</span></div>
-        <div className="an-kpi t-brand"><span className="l">{T('Gross profit', 'مجمل الربح')}</span><span className="v num">{m(b.kpi.grossProfit)}</span><span className="s">{b.kpi.revenue ? ((b.kpi.grossProfit / b.kpi.revenue) * 100).toFixed(1) + '%' : '–'}</span></div>
-        <div className="an-kpi t-brand"><span className="l">EBITDA</span><span className="v num">{m(b.kpi.ebitda)}</span><span className="s">{b.kpi.revenue ? ((b.kpi.ebitda / b.kpi.revenue) * 100).toFixed(1) + '%' : '–'}</span></div>
-        <div className="an-kpi t-pay"><span className="l">{T('Capex', 'النفقات الرأسمالية')}</span><span className="v num">{m(b.kpi.capex)}</span></div>
+        <div className="an-kpi t-rec"><span className="l">{T('Revenue', 'الإيرادات')}</span><span className="v num"><CountUp value={b.kpi.revenue} format={m} /></span></div>
+        <div className="an-kpi t-brand"><span className="l">{T('Gross profit', 'مجمل الربح')}</span><span className="v num"><CountUp value={b.kpi.grossProfit} format={m} /></span><span className="s">{b.kpi.revenue ? ((b.kpi.grossProfit / b.kpi.revenue) * 100).toFixed(1) + '%' : '–'}</span></div>
+        <div className="an-kpi t-brand"><span className="l">EBITDA</span><span className="v num"><CountUp value={b.kpi.ebitda} format={m} /></span><span className="s">{b.kpi.revenue ? ((b.kpi.ebitda / b.kpi.revenue) * 100).toFixed(1) + '%' : '–'}</span></div>
+        <div className="an-kpi t-pay"><span className="l">{T('Capex', 'النفقات الرأسمالية')}</span><span className="v num"><CountUp value={b.kpi.capex} format={m} /></span></div>
         <div className="an-kpi t-brand"><span className="l">{T('After capex and financing', 'بعد الرأسمالية والتمويل')}</span><span className="v num">{m(b.kpi.netAfterCapex)}</span></div>
         <div className="an-kpi t-brand"><span className="l">{T('Saudi share of headcount', 'نسبة السعوديين')}</span><span className="v num">{b.kpi.saudiShare === null ? '–' : (b.kpi.saudiShare * 100).toFixed(1) + '%'}</span></div>
+      </div>
+      <div className="bgt-dash">
+        <section className="card wide"><h2>{T('Revenue, costs and EBITDA by month', 'الإيرادات والتكاليف وEBITDA شهريًا')}</h2>
+          <MonthColumns months={keys.map((k) => monthLabel(k, lang))} revenue={b.total.revenue} costs={keys.map((_, k) => b.total.cogs[k] + b.total.opex[k] + b.ebitdaNoncash[k])} line={ebitda}
+            labels={{ revenue: T('Revenue', 'الإيرادات'), costs: T('Cost of sales and running costs', 'تكلفة المبيعات والمصاريف'), line: 'EBITDA' }} /></section>
+        <section className="card"><h2>{T('Spending by department', 'الإنفاق حسب الإدارة')}</h2><p className="sub">{T('Costs and capex. Hover a slice for its share.', 'التكاليف والرأسمالية. مرّر على الجزء لرؤية نسبته.')}</p>
+          <Donut center={(() => { const t = Object.values(b.byDept).reduce((a, k) => a + sum(k.cogs) + sum(k.opex) + sum(k.noncash) + sum(k.financing) + sum(k.capex), 0); return t >= 1e6 ? (t / 1e6).toFixed(1) + 'M' : Math.round(t / 1e3) + 'k'; })()} sub={T('SAR, whole round', 'ريال، الدورة كاملة')}
+            parts={meta.pack.allDepartments.map((d, i) => ({ id: d.id, label: txt(d.name), color: deptColor(i), value: (() => { const k = b.byDept[d.id]; return k ? sum(k.cogs) + sum(k.opex) + sum(k.noncash) + sum(k.financing) + sum(k.capex) : 0; })() })).filter((p) => p.value > 0)} /></section>
+        <section className="card"><h2>{T('Revenue and costs by city', 'الإيرادات والتكاليف حسب المدينة')}</h2>
+          <HBars labels={{ a: T('Revenue', 'الإيرادات'), b: T('Costs', 'التكاليف') }} rows={Object.entries(b.byRegion).map(([c, v]) => ({ id: c, label: rName(c), a: sum(v.revenue), b: sum(v.costs) })).sort((x, y) => (y.a + (y.b || 0)) - (x.a + (x.b || 0)))} /></section>
       </div>
       <section className="card" style={{ marginTop: 20 }}>
         <h2>{T('Month by month', 'شهرًا بشهر')}</h2>

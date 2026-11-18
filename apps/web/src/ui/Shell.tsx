@@ -32,7 +32,7 @@ export function Shell({ children }: { children: ReactNode }) {
     <div className="app">
       <aside className="side">
         <div className="co">
-          <div className="mark">{s.hasLogo ? <img src={'/api/tenant/logo?v=' + encodeURIComponent(s.logoVersion)} alt="" /> : name.slice(0, 1)}</div>
+          <div className="mark">{s.hasLogo ? <img src={'/api/tenant/logo?v=' + encodeURIComponent(s.logoVersion)} alt="" /> : <img src="/bestgas-logo.png" alt="" />}</div>
           <div><b>{name}</b><span>{t('product')}</span></div>
         </div>
         <nav className="nav" aria-label={t('product')}>

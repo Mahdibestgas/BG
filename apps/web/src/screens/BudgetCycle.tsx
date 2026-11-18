@@ -6,6 +6,7 @@ import { useSession } from '../App';
 import { useI18n } from '../i18n';
 import { acc, date, m } from '../format';
 import { useBudgetMeta } from './Budget';
+import { BudgetActualLines, CountUp, VarianceBars } from '../ui/bgtCharts';
 
 const sum = (a: number[]) => a.reduce((t, x) => t + (x || 0), 0);
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -238,11 +239,20 @@ export function BudgetVariance() {
         <select className="pill" value={city} onChange={(x) => setCity(x.target.value)} aria-label={T('City', 'المدينة')}><option value="">{T('All cities', 'كل المدن')}</option>{meta.regions.map((x) => <option key={x.id} value={x.id}>{txt(x.name)}</option>)}</select>
       </div>
       <div className="an-kpis">
-        <div className="an-kpi t-rec"><span className="l">{T('Revenue', 'الإيرادات')}</span><span className="v num">{m(rev.actual)}</span><span className="s">{T('budget ', 'الميزانية ')}{m(rev.budget)} · <Fav v={rev.fav} /></span></div>
-        <div className="an-kpi t-pay"><span className="l">{T('Costs', 'التكاليف')}</span><span className="v num">{m(cost.actual)}</span><span className="s">{T('budget ', 'الميزانية ')}{m(cost.budget)} · <Fav v={cost.fav} /></span></div>
+        <div className="an-kpi t-rec"><span className="l">{T('Revenue', 'الإيرادات')}</span><span className="v num"><CountUp value={rev.actual} format={m} /></span><span className="s">{T('budget ', 'الميزانية ')}{m(rev.budget)} · <Fav v={rev.fav} /></span></div>
+        <div className="an-kpi t-pay"><span className="l">{T('Costs', 'التكاليف')}</span><span className="v num"><CountUp value={cost.actual} format={m} /></span><span className="s">{T('budget ', 'الميزانية ')}{m(cost.budget)} · <Fav v={cost.fav} /></span></div>
         <div className="an-kpi t-brand"><span className="l">EBITDA</span><span className="v num">{m(ebitda('actual'))}</span><span className="s">{T('budget ', 'الميزانية ')}{m(ebitda('budget'))} · <Fav v={ebitda('actual') - ebitda('budget')} /></span></div>
         <div className="an-kpi t-brand"><span className="l">{T('Capex', 'الرأسمالية')}</span><span className="v num">{m(capex.actual)}</span><span className="s">{T('budget ', 'الميزانية ')}{m(capex.budget)} · <Fav v={capex.fav} /></span></div>
       </div>
+      {d.actualMonths.length > 0 && <div className="bgt-dash">
+        <section className="card"><h2>{T('EBITDA: budget against actual', 'EBITDA: الميزانية مقابل الفعلي')}</h2>
+          <BudgetActualLines months={keys.map((k) => monthLabel(k, lang))} labels={{ budget: T('Budget', 'الميزانية'), actual: T('Actual', 'الفعلي') }}
+            budget={keys.map((_, i) => sum(rows.filter((r) => ebitdaKinds.includes(r.kind)).map((r) => (r.kind === 'revenue' ? 1 : -1) * (r.budget[i] || 0))))}
+            actual={keys.map((k, i) => d.actualMonths.includes(k) ? sum(rows.filter((r) => ebitdaKinds.includes(r.kind)).map((r) => (r.kind === 'revenue' ? 1 : -1) * (r.actual[i] || 0))) : null)} /></section>
+        <section className="card"><h2>{T('Biggest variances', 'أكبر الانحرافات')}</h2><p className="sub">{periodText}</p>
+          <VarianceBars labels={{ good: T('Favourable', 'في صالحنا'), bad: T('Unfavourable', 'ضد صالحنا') }}
+            rows={sections.flatMap((s2) => s2.list.map((g, j) => ({ id: s2.id + j, label: g.label, fav: g.fav }))).filter((r) => Math.abs(r.fav) >= 0.5).sort((a, b) => Math.abs(b.fav) - Math.abs(a.fav)).slice(0, 10)} /></section>
+      </div>}
       {sections.map((s) => s.list.length > 0 && (
         <section className="card" key={s.id} style={{ marginTop: 20 }}>
           <h2>{T(s.en, s.ar)}</h2>
