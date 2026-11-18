@@ -55,4 +55,8 @@ test('an end date inside the last week makes it a short week, and nothing is pla
   assert.equal(r.calendar.months[r.calendar.months.length - 1].weights[12], 1);   // the short week sits wholly in January
   m.meta.endDate = '2027-02-05';
   assert.throws(() => forecast(m), (e: unknown) => e instanceof EngineError && e.code === 'end_date_outside_last_week');
+  const g = { template: 'generic', meta: { startDate: '2026-11-01', weeks: 13, endDate: '2027-01-28' }, tax: m.tax, financing: m.financing, openingReceivable: m.openingReceivable, schedules: [] } as any;
+  assert.throws(() => forecast(g), (e: unknown) => e instanceof EngineError && e.code === 'end_date_bank_history_only');
+  m.meta.endDate = '2027-02-05';
+  assert.throws(() => forecast(m), (e: unknown) => e instanceof EngineError && e.code === 'end_date_outside_last_week');
 });

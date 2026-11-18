@@ -46,6 +46,13 @@ export function planDays(weeks: Array<{ start: string; end: string }>): number {
   return weeks.length ? Math.round((Date.parse(weeks[weeks.length - 1].end) - Date.parse(weeks[0].start)) / 864e5) + 1 : 0;
 }
 
+/** True when the plan meets the same calendar month twice (Nov 2026 and Nov 2027): month labels then need the year. */
+export function repeatsMonths(weeks: Array<{ start: string; end: string }>): boolean {
+  if (!weeks.length) return false;
+  const a = weeks[0].start, b = weeks[weeks.length - 1].end;
+  return (Number(b.slice(0, 4)) - Number(a.slice(0, 4))) * 12 + Number(b.slice(5, 7)) - Number(a.slice(5, 7)) >= 12;
+}
+
 export function currentWeek(weeks: Array<{ start: string; end: string }>): number {
   const now = new Date(Date.now() + 3 * 3600 * 1000).toISOString().slice(0, 10);
   return weeks.findIndex((w) => now >= w.start && now <= w.end);

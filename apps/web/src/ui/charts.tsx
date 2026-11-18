@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { Forecast } from '../api';
 import { useI18n } from '../i18n';
 import { date, m, sar } from '../format';
@@ -9,6 +9,7 @@ const niceMax = (v: number) => { if (v <= 0) return 1; const p = Math.pow(10, Ma
 export function Runway({ f, now }: { f: Forecast; now: number }) {
   const { t, lang } = useI18n();
   const [tip, setTip] = useState<number | null>(null);
+  const gid = 'rw-area-' + useId().replace(/:/g, '');
   const c = f.l1.closing, N = c.length, buf = f.headline.minBuffer;
   const W = 1000, H = 330, L = lang === 'ar' ? 14 : 104, R = lang === 'ar' ? W - 104 : W - 14, T = 24, B = H - 42;
   const hi = niceMax(Math.max(...c, buf, 1) * 1.12), lo = Math.min(0, ...c) < 0 ? -niceMax(-Math.min(...c) * 1.15) : 0;
@@ -23,11 +24,11 @@ export function Runway({ f, now }: { f: Forecast; now: number }) {
   return (
     <div className="chart">
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={t('runwayTitle')}>
-        <defs><linearGradient id="rw-area" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="var(--brand-ink)" stopOpacity=".2" /><stop offset="1" stopColor="var(--brand-ink)" stopOpacity="0" /></linearGradient></defs>
+        <defs><linearGradient id={gid} x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="var(--brand-ink)" stopOpacity=".2" /><stop offset="1" stopColor="var(--brand-ink)" stopOpacity="0" /></linearGradient></defs>
         {ticks.map((v) => <g key={v}><line x1={L} x2={R} y1={y(v)} y2={y(v)} stroke="var(--rule)" strokeDasharray={v === 0 ? undefined : '2 4'} /><text x={axisX} y={y(v) + 4} textAnchor={anchor} fontSize="11.5" fill="var(--ink2)">{m(v)}</text></g>)}
         {now >= 0 && <rect x={x(now) - sw / 2} y={T} width={sw} height={B - T} rx="6" fill="var(--warn)" opacity=".1" />}
         {tip !== null && <line x1={x(tip)} x2={x(tip)} y1={T} y2={B} stroke="var(--ink2)" strokeOpacity=".45" strokeDasharray="2 3" />}
-        <path d={`${path} L${x(N - 1)} ${y(Math.max(lo, 0))} L${x(0)} ${y(Math.max(lo, 0))}Z`} fill="url(#rw-area)" />
+        <path d={`${path} L${x(N - 1)} ${y(Math.max(lo, 0))} L${x(0)} ${y(Math.max(lo, 0))}Z`} fill={`url(#${gid})`} />
         {buf > 0 && <>
           <rect x={L} y={y(buf)} width={R - L} height={y(0) - y(buf)} fill="var(--warn-bg)" opacity=".55" />
           <line x1={L} x2={R} y1={y(buf)} y2={y(buf)} stroke="var(--warn)" strokeDasharray="3 5" />

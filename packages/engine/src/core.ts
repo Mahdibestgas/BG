@@ -20,6 +20,9 @@ export function runForecast<M extends CoreModel>(model: M, template: Template<M>
   if (template.id !== model.template) throw new EngineError('template_mismatch');
   const v2 = !!(model.compat && model.compat.v2);
   const N = model.meta.weeks || 13;
+  // a short last week is only safe where the weekly values are already cut at that day (plans built from bank history);
+  // driver templates would book a full week of volume into it
+  if (model.meta.endDate && template.id !== 'bank-history') throw new EngineError('end_date_bank_history_only');
   const cal = buildCalendar(model.meta.startDate, N, !!model.meta.anyStartDay, model.meta.endDate);
   const categories = template.categories;
   const catIds = new Set(categories.map((c) => c.id));

@@ -2,7 +2,7 @@ import { Fragment, useEffect, useState } from 'react';
 import { api, type Forecast, type Item } from '../api';
 import { useSession } from '../App';
 import { useI18n } from '../i18n';
-import { currentWeek, date, k, m, planDays } from '../format';
+import { currentWeek, date, k, m, planDays, repeatsMonths } from '../format';
 import { useForecast } from './Overview';
 
 type Units = 'k' | 'full';
@@ -48,7 +48,7 @@ export function CashFlow() {
   if (exact && pm?.months) {
     pm.months.forEach((mo) => {
       const first = Number(mo.from.slice(8, 10)) === 1, eom = new Date(Date.UTC(Number(mo.to.slice(0, 4)), Number(mo.to.slice(5, 7)), 0)).getUTCDate() === Number(mo.to.slice(8, 10));
-      mcols.push({ key: mo.key, label: date(mo.from, lang, { month: 'long', year: 'numeric' }), short: date(mo.from, lang, (pm.months?.length ?? 0) > 12 ? { month: 'short', year: '2-digit' } : { month: 'short' }), days: mo.days, w: [],
+      mcols.push({ key: mo.key, label: date(mo.from, lang, { month: 'long', year: 'numeric' }), short: date(mo.from, lang, repeatsMonths(f.weeks) ? { month: 'short', year: '2-digit' } : { month: 'short' }), days: mo.days, w: [],
         sub: first && eom ? L(`${mo.days} days`, `${mo.days} يومًا`) : `${date(mo.from, lang, { day: 'numeric', month: 'short' })} – ${date(mo.to, lang, { day: 'numeric', month: 'short' })} · ${L(`${mo.days} days`, `${mo.days} يومًا`)}` });
     });
   } else {

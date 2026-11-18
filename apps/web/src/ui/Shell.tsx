@@ -1,8 +1,8 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useSession } from '../App';
 import { useI18n } from '../i18n';
-import { currentScheme, setScheme, type Scheme } from '../theme';
+import { currentScheme, onSystemScheme, setScheme, type Scheme } from '../theme';
 
 const ICONS: Record<string, string> = {
   overview: 'M3 15l4-5 3 3 6-8', cash: 'M3 5h14M3 10h14M3 15h14', balances: 'M3 6h14v9H3zM3 9h14',
@@ -14,6 +14,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const s = useSession();
   const { t, lang, setLang } = useI18n();
   const [scheme, setSch] = useState<Scheme>(currentScheme);
+  useEffect(() => onSystemScheme(setSch), []);
   const flip = () => { const n: Scheme = scheme === 'dark' ? 'light' : 'dark'; setScheme(n); setSch(n); };
   const name = lang === 'ar' && s.tenant.nameAr ? s.tenant.nameAr : s.tenant.name;
   const links: Array<[string, string, string]> = [['/', 'overview', t('nav_overview')], ['/cash-flow', 'cash', t('nav_cash')], ['/analysis', 'analysis', t('nav_analysis')], ['/variance', 'variance', t('nav_variance')], ['/pnl', 'pnl', t('nav_pnl')], ['/board', 'board', t('nav_board')], ['/balances', 'balances', t('nav_balances')]];

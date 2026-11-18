@@ -70,7 +70,8 @@ export function Pnl() {
     const isoOf = (d: Date) => d.toISOString().slice(0, 10);
     const start = new Date(f.weeks[0].start + 'T00:00:00Z');
     const days: Array<{ iso: string; w: number; mi: number }> = [];
-    for (let i = 0; i < planDays(f.weeks); i++) {
+    const nDays = planDays(f.weeks);
+    for (let i = 0; i < nDays; i++) {
       const d = new Date(start.getTime() + i * 864e5), iso = isoOf(d);
       const mi = mdl.months!.findIndex((mo) => iso >= mo.from && iso <= mo.to);
       if (mi >= 0) days.push({ iso, w: Math.floor(i / 7), mi });

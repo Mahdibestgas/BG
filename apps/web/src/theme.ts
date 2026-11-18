@@ -43,6 +43,14 @@ export function initScheme() {
   try { saved = localStorage.getItem(SCHEME_KEY) || ''; } catch { /* private mode */ }
   if (saved === 'dark' || saved === 'light') document.documentElement.setAttribute('data-scheme', saved);
 }
+/** Calls back when the system scheme changes and no choice is saved on this device. */
+export function onSystemScheme(cb: (s: Scheme) => void): () => void {
+  if (typeof window === 'undefined' || !window.matchMedia) return () => {};
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  const h = () => { if (!document.documentElement.getAttribute('data-scheme')) cb(mq.matches ? 'dark' : 'light'); };
+  mq.addEventListener('change', h);
+  return () => mq.removeEventListener('change', h);
+}
 export function setScheme(s: Scheme) {
   document.documentElement.setAttribute('data-scheme', s);
   try { localStorage.setItem(SCHEME_KEY, s); } catch { /* private mode */ }
