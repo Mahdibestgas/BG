@@ -18,8 +18,11 @@ jobs:
       - run: npm run typecheck
       - run: npm test -w @cf13/engine
 
+  # Render deploys this repository itself (render.yaml). The SSH deploy runs only when a server is set up:
+  # repository variable DEPLOY_SSH = on, plus the DEPLOY_* secrets.
   deploy:
     needs: check
+    if: vars.DEPLOY_SSH == 'on'
     runs-on: ubuntu-latest
     environment: production
     steps:
