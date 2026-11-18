@@ -6,6 +6,8 @@
  */
 import { KIND_NAMES, KSA_HR_DEFAULTS, KSA_LPG, PACKS, type HrParams, type Item, type Kind, type Pack, type Txt } from './catalog';
 export * from './catalog';
+import { cleanPlan, cleanStudy, type DeptPlan, type Study } from './cycle';
+export * from './cycle';
 
 export class BudgetError extends Error {
   constructor(public code: string) { super(code); }
@@ -37,7 +39,7 @@ export interface Position {
   ticketAnnual?: number;    // per head
   ticketMonth?: number;     // month index the tickets are bought; empty spreads them
 }
-export interface SubmissionBody { lines: Line[]; positions: Position[] }
+export interface SubmissionBody { lines: Line[]; positions: Position[]; study?: Study; plan?: DeptPlan }
 
 export const MAX_LINES = 600, MAX_POSITIONS = 300, MAX_MONTHS = 24;
 const ID = /^[A-Za-z0-9_-]{1,40}$/;
@@ -105,7 +107,7 @@ export interface CleanCtx { pack: Pack; dept: string; months: number; regions: s
  * so a client can never write a salary line the calculator did not produce.
  */
 export function cleanSubmission(input: unknown, c: CleanCtx): SubmissionBody {
-  const b = (input && typeof input === 'object' ? input : {}) as { lines?: unknown; positions?: unknown };
+  const b = (input && typeof input === 'object' ? input : {}) as { lines?: unknown; positions?: unknown; study?: unknown; plan?: unknown };
   const rawLines = Array.isArray(b.lines) ? b.lines : [];
   const rawPos = Array.isArray(b.positions) ? b.positions : [];
   if (rawLines.length > MAX_LINES) throw new BudgetError('too_many_lines');
@@ -163,7 +165,7 @@ export function cleanSubmission(input: unknown, c: CleanCtx): SubmissionBody {
     lines.push({ id: uid(r?.id, at), item: item.id, region: regionOk(text(r?.region, at + '.region', 40, true), at), desc: text(r?.desc, at + '.desc', 200), amounts, ...(note ? { note } : {}), ...(basis ? { basis } : {}) });
   });
   for (const p of positions) lines.push(...positionLines(p, c.months, c.params));
-  return { lines, positions };
+  return { lines, positions, study: cleanStudy(b.study), plan: cleanPlan(b.plan, c.months) };
 }
 
 // ---- consolidation

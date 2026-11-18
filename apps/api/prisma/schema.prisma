@@ -31,6 +31,7 @@ model Tenant {
   budgetSettings BudgetSettings?
   budgetCycles   BudgetCycle[]
   budgetSubmissions BudgetSubmission[]
+  budgetActuals  BudgetActual[]
 
   @@map("tenants")
 }
@@ -205,6 +206,7 @@ model BudgetCycle {
 
   tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   submissions BudgetSubmission[]
+  actuals     BudgetActual[]
 
   @@index([tenantId])
   @@map("budget_cycles")
@@ -236,4 +238,25 @@ model BudgetSubmission {
   @@unique([cycleId, department, revision])
   @@index([tenantId, cycleId])
   @@map("budget_submissions")
+}
+
+/// What actually happened in a month of a budget round, by item and city (SAR, excluding VAT).
+/// Imported or typed by finance; a new import of a month replaces that month.
+model BudgetActual {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  cycleId   String   @map("cycle_id") @db.Uuid
+  month     String                       // YYYY-MM
+  item      String
+  region    String
+  amount    Decimal  @db.Decimal(16, 2)
+  source    String   @default("manual") // manual | csv
+  createdBy String?  @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  cycle  BudgetCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, cycleId, month])
+  @@map("budget_actuals")
 }

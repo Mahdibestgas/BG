@@ -1,8 +1,9 @@
 import { Body, Controller, Get, Inject, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import {
-  BudgetError, cleanParams, cleanRegions, cleanSubmission, consolidate, DEFAULT_PARAMS, deptOf, itemOf, monthKeys, packOf, sum,
+  BudgetError, budgetToCashPlan, cleanActuals, cleanParams, cleanRegions, cleanSubmission, consolidate, DEFAULT_PARAMS, deptOf, itemOf, monthKeys, packOf, readiness, sum, varianceRows,
   type HrParams, type Pack, type SubmissionBody
 } from '@cf13/budget';
+import { forecast, type CoreModel } from '@cf13/engine';
 import { Db } from './db';
 import { AppError, Context, isUuid, Roles, str, type Ctx } from './http';
 
@@ -52,6 +53,11 @@ export class BudgetController {
   }
   private latest(tx: Tx, cycleId: string, department: string) {
     return tx.budgetSubmission.findFirst({ where: { cycleId, department }, orderBy: { revision: 'desc' } });
+  }
+  private async approved(tx: Tx, pack: Pack, cycleId: string) {
+    const subs = await tx.budgetSubmission.findMany({ where: { cycleId, status: 'approved' }, orderBy: { revision: 'desc' } });
+    return pack.departments.map((d) => subs.find((x) => x.department === d.id)).filter((x): x is NonNullable<typeof x> => !!x)
+      .map((x) => ({ dept: x.department, revision: x.revision, body: x.body as unknown as SubmissionBody }));
   }
   private audit(tx: Tx, ctx: Ctx, action: string, entityId: string, changes: object) {
     return tx.auditEntry.create({ data: { tenantId: ctx.tenantId, actorId: ctx.accountId, action, entity: 'budget', entityId, changes: changes as any } });
@@ -139,7 +145,8 @@ export class BudgetController {
         return {
           department: d.id, name: d.name, status: last?.status ?? 'not_started', revision: last?.revision ?? 0, version: last?.version ?? 0,
           updatedAt: last?.updatedAt ?? null, submittedAt: last?.submittedAt ?? null, reviewComment: last?.reviewComment ?? null,
-          approvedRevision: approved?.revision ?? null, totals: last ? totals(s.pack, last.body as unknown as SubmissionBody) : null
+          approvedRevision: approved?.revision ?? null, totals: last ? totals(s.pack, last.body as unknown as SubmissionBody) : null,
+          readiness: last ? readiness(last.body as unknown as SubmissionBody) : null
         };
       });
       return { ok: true, cycle: { id: c.id, name: c.name, status: c.status, deadline: c.deadline, monthKeys: monthKeys(c.startMonth, c.months) }, departments };
@@ -255,6 +262,79 @@ export class BudgetController {
       const keys = monthKeys(c.startMonth, c.months);
       const r = consolidate(s.pack, keys, use.map((u) => ({ dept: u.dept, body: u.body })));
       return { ok: true, cycle: { id: c.id, name: c.name, status: c.status, monthKeys: keys }, included: use.map((u) => ({ department: u.dept, status: u.status, revision: u.revision })), budget: r };
+    });
+  }
+
+  // ---------------------------------------------------------------- actuals, variance, forecast
+  /** Actuals of the round, month by month (SAR, excluding VAT). */
+  @Get('cycles/:id/actuals') @Roles('owner', 'finance')
+  async actuals(@Context() ctx: Ctx, @Param('id') id: string) {
+    return this.db.inTenant(ctx.tenantId, async (tx) => {
+      const c = await this.cycle(tx, id);
+      const rows = await tx.budgetActual.findMany({ where: { cycleId: id }, orderBy: [{ month: 'asc' }, { item: 'asc' }] });
+      return { ok: true, cycle: { id: c.id, name: c.name, monthKeys: monthKeys(c.startMonth, c.months) },
+        rows: rows.map((r) => ({ month: r.month, item: r.item, region: r.region, amount: Number(r.amount), source: r.source })) };
+    });
+  }
+
+  /** Loads actuals. Every month present in the upload (and any month named in `replace`) is replaced as a whole, so a re-import never doubles. */
+  @Put('cycles/:id/actuals') @Roles('owner', 'finance')
+  async saveActuals(@Context() ctx: Ctx, @Param('id') id: string, @Body() b: any) {
+    return this.db.inTenant(ctx.tenantId, async (tx) => {
+      const c = await this.cycle(tx, id);
+      const s = await this.settings(tx);
+      const keys = monthKeys(c.startMonth, c.months);
+      let rows;
+      try { rows = cleanActuals(b?.rows, s.pack, keys, s.regions.map((r) => r.id)); } catch (e) { return asApp(e); }
+      const replace = new Set<string>([...rows.map((r) => r.month), ...(Array.isArray(b?.replace) ? b.replace.filter((m: unknown) => typeof m === 'string' && keys.includes(m)) : [])]);
+      if (!replace.size) throw new AppError('nothing_to_load');
+      const source = b?.source === 'csv' ? 'csv' : 'manual';
+      await tx.budgetActual.deleteMany({ where: { cycleId: id, month: { in: [...replace] } } });
+      if (rows.length) await tx.budgetActual.createMany({ data: rows.map((r) => ({ tenantId: ctx.tenantId, cycleId: id, month: r.month, item: r.item, region: r.region, amount: r.amount, source, createdBy: ctx.accountId })) });
+      await this.audit(tx, ctx, 'budget_actuals_loaded', id, { months: [...replace].sort(), rows: rows.length, total: Math.round(rows.reduce((t, r) => t + r.amount, 0)), source });
+      return { ok: true, months: [...replace].sort(), rows: rows.length };
+    });
+  }
+
+  /** Budget (approved departments) against actual, by item and city, month by month. */
+  @Get('cycles/:id/variance') @Roles('owner', 'finance')
+  async variance(@Context() ctx: Ctx, @Param('id') id: string) {
+    return this.db.inTenant(ctx.tenantId, async (tx) => {
+      const c = await this.cycle(tx, id);
+      const s = await this.settings(tx);
+      const keys = monthKeys(c.startMonth, c.months);
+      const approved = await this.approved(tx, s.pack, id);
+      const acts = await tx.budgetActual.findMany({ where: { cycleId: id } });
+      const v = varianceRows(s.pack, keys, approved, acts.map((a) => ({ month: a.month, item: a.item, region: a.region, amount: Number(a.amount) })));
+      return { ok: true, cycle: { id: c.id, name: c.name, monthKeys: keys }, included: approved.map((a) => ({ department: a.dept, revision: a.revision })), ...v };
+    });
+  }
+
+  /**
+   * Step 4, the forecast: turns the approved budget into a cash plan (VAT added, net VAT paid the month after)
+   * that every cash screen reads. Same name = a new version of the same plan; an engine check failure saves nothing.
+   */
+  @Post('cycles/:id/to-plan') @Roles('owner')
+  async toPlan(@Context() ctx: Ctx, @Param('id') id: string, @Body() b: any) {
+    const opening = Number(b?.openingCash);
+    if (!Number.isFinite(opening) || Math.abs(opening) > 1e12) throw new AppError('invalid_number:openingCash');
+    return this.db.inTenant(ctx.tenantId, async (tx) => {
+      const c = await this.cycle(tx, id);
+      const s = await this.settings(tx);
+      const approved = await this.approved(tx, s.pack, id);
+      if (!approved.length) throw new AppError('nothing_approved', 409);
+      const name = `${c.name} - budget cash view`;
+      const model = budgetToCashPlan(s.pack, monthKeys(c.startMonth, c.months), approved, { openingCash: opening, name }) as unknown as CoreModel;
+      const r = forecast(model);
+      if (r.checks.some((x) => !x.ok)) throw new AppError('plan_checks_failed', 422);
+      const existing = await tx.plan.findFirst({ where: { name, status: { not: 'archived' } } });
+      if (existing?.status === 'locked') throw new AppError('plan_locked', 409);
+      const saved = existing
+        ? await tx.plan.update({ where: { id: existing.id }, data: { model: model as any, version: { increment: 1 } } })
+        : await tx.plan.create({ data: { tenantId: ctx.tenantId, name, model: model as any, createdBy: ctx.accountId } });
+      await this.audit(tx, ctx, existing ? 'plan_refreshed' : 'plan_imported', saved.id, { name, from: 'budget', cycle: id, departments: approved.map((a) => a.dept + ' r' + a.revision), openingCash: opening });
+      const N = r.l1.closing.length;
+      return { ok: true, planId: saved.id, version: saved.version, closing: r.l1.closing[N - 1], lowest: Math.min(...r.l1.closing) };
     });
   }
 }

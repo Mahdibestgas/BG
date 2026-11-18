@@ -67,3 +67,42 @@ test('consolidation adds departments into revenue, gross profit, EBITDA and cape
   assert.equal(r.byRegion.qassim.capex[0], 5000);
   assert.equal(r.headcount[0].nonSaudi, 1);
 });
+
+import { budgetToCashPlan, cleanActuals, cleanPlan, cleanStudy, favourable, varianceRows } from '../src';
+
+test('study and plan are kept, trimmed and bounded', () => {
+  const s = cleanStudy({ situation: '  Riyadh grew 40%  ', market: 'x'.repeat(10) });
+  assert.equal(s.situation, 'Riyadh grew 40%'); assert.equal(s.capacity, '');
+  assert.throws(() => cleanStudy({ market: 'x'.repeat(4001) }), /too_long:study.market/);
+  const p = cleanPlan({ vision: 'Market leader in Qassim', objectives: [{ id: 'o1', text: 'More delivery', kpi: 'Orders a month', unit: 'orders', baseline: '1,200', target: 3000 }],
+    initiatives: [{ id: 'i1', title: 'Launch app', month: 2, objective: 'o1' }, { id: 'i2', title: 'Ghost', objective: 'nope' }], risks: [{ id: 'r1', risk: 'Aramco price', impact: 'high' }] }, 12);
+  assert.equal(p.objectives[0].baseline, 1200); assert.equal(p.initiatives[1].objective, '', 'an unknown objective link is dropped');
+  assert.throws(() => cleanPlan({ initiatives: [{ id: 'x', title: 't', month: 12 }] }, 12), /invalid_months/);
+});
+
+test('budget against actual: rows by item and city, favourable sign per kind', () => {
+  const m = monthKeys('2027-01', 3), c = { pack: KSA_LPG, months: 3, regions, params };
+  const sales = cleanSubmission({ lines: [{ id: 's', item: 'sa_branch_cash', region: 'riyadh', amounts: [100, 100, 100] }] }, { ...c, dept: 'sales' });
+  const acts = cleanActuals([{ month: '2027-01', item: 'sa_branch_cash', region: 'riyadh', amount: 120 }, { month: '2027-01', item: 'op_fuel', region: 'jeddah', amount: 50 }], KSA_LPG, m, regions);
+  assert.throws(() => cleanActuals([{ month: '2026-12', item: 'op_fuel', region: 'riyadh', amount: 1 }], KSA_LPG, m, regions), /month_outside_cycle/);
+  const v = varianceRows(KSA_LPG, m, [{ body: sales }], acts);
+  assert.deepEqual(v.actualMonths, ['2027-01']);
+  const rs = v.rows.find((r) => r.item === 'sa_branch_cash')!, fuel = v.rows.find((r) => r.item === 'op_fuel')!;
+  assert.equal(favourable(rs.kind, rs.budget[0], rs.actual[0]), 20, 'more sales than budget is favourable');
+  assert.equal(favourable(fuel.kind, fuel.budget[0], fuel.actual[0]), -50, 'unbudgeted fuel is unfavourable');
+});
+
+test('an approved budget becomes a cash plan: VAT added, spread by day, net VAT paid the month after', () => {
+  const m = monthKeys('2027-01', 2), c = { pack: KSA_LPG, months: 2, regions, params };
+  const sales = cleanSubmission({ lines: [{ id: 's', item: 'sa_branch_cash', region: 'riyadh', amounts: [31000, 28000] }] }, { ...c, dept: 'sales' });
+  const hr = cleanSubmission({ positions: [pos({ headcount: 1, medicalAnnual: 0, from: 0, to: 1 })] }, { ...c, dept: 'hr' });
+  const plan = budgetToCashPlan(KSA_LPG, m, [{ body: sales }, { body: hr }], { openingCash: 500000, name: 'Budget cash view' });
+  assert.equal(plan.meta.startDate, '2027-01-01'); assert.equal(plan.meta.endDate, '2027-02-28'); assert.equal(plan.meta.weeks, 9);
+  const s = plan.lines.find((l: any) => l.l3 === 'budget:sa_branch_cash');
+  assert.equal(s.monthly[0], 35650, '31,000 + 15% VAT');
+  assert.equal(Math.round(s.values.reduce((a: number, b: number) => a + b, 0)), Math.round(35650 + 32200));
+  assert.ok(!plan.lines.some((l: any) => l.l3 === 'budget:hr_eosb'), 'end of service accrual is not cash');
+  const v = plan.lines.find((l: any) => l.l3 === 'budget:vat');
+  assert.equal(v.monthly[1], 4650, 'January output VAT on sales, paid end of February (salaries carry none)');
+  assert.equal(v.monthly[0], 0);
+});
