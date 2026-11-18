@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Inject, Param, Post, Put, Query } from '@nestjs/common';
-import { dayNum, forecast, isoOf, isRealDate, rollupL3, type CoreModel, type ForecastResult } from '@cf13/engine';
+import { dayNum, forecast, isoOf, isRealDate, rollupL3, TEMPLATES, type CoreModel, type ForecastResult } from '@cf13/engine';
 import { Db } from './db';
 import { amount, AppError, Context, isUuid, KeyOk, Roles, str, type Ctx } from './http';
 
@@ -52,6 +52,44 @@ export class PlansController {
     const p = await this.db.inTenant(ctx.tenantId, (tx) => tx.plan.findUnique({ where: { id } }));
     if (!p) throw new AppError('not_found', 404);
     return p;
+  }
+
+  /**
+   * Loads a plan file (as written by bank/build_forecast.py) into this company. The engine must run it with every
+   * check passing, or nothing is saved. A plan with the same name becomes a new version; demo plans can be hidden.
+   */
+  @Post('import') @Roles('owner', 'finance')
+  async importPlan(@Context() ctx: Ctx, @Body() b: any) {
+    const model = b?.model as CoreModel & { meta: { name?: string; demo?: boolean } };
+    if (!model || typeof model !== 'object' || !model.meta || typeof model.template !== 'string') throw new AppError('invalid_plan_file');
+    if (!Object.prototype.hasOwnProperty.call(TEMPLATES, model.template)) throw new AppError('unknown_template');
+    const name = str(b?.name || model.meta.name || 'Imported plan', 'name', 120);
+    let r: ForecastResult;
+    try { r = forecast(model); } catch (e) { throw new AppError('invalid_plan_file:' + ((e as Error).message || 'engine').slice(0, 80), 422); }
+    const failed = r.checks.filter((c) => !c.ok);
+    if (failed.length) throw new AppError('plan_checks_failed:' + failed.map((c) => c.id).join(',').slice(0, 120), 422);
+    const hideDemo = b?.hideDemo !== false;
+    return this.db.inTenant(ctx.tenantId, async (tx) => {
+      const existing = await tx.plan.findFirst({ where: { name, status: { not: 'archived' } } });
+      if (existing?.status === 'locked') throw new AppError('plan_locked', 409);
+      const saved = existing
+        ? await tx.plan.update({ where: { id: existing.id }, data: { model: model as any, version: { increment: 1 } } })
+        : await tx.plan.create({ data: { tenantId: ctx.tenantId, name, model: model as any, createdBy: ctx.accountId } });
+      await tx.auditEntry.create({ data: { tenantId: ctx.tenantId, actorId: ctx.accountId, action: existing ? 'plan_refreshed' : 'plan_imported', entity: 'plan', entityId: saved.id,
+        changes: { name, template: model.template, start: model.meta.startDate, weeks: r.l1.closing.length, from: 'upload' } } });
+      let hidden = 0;
+      if (hideDemo && !model.meta.demo) {
+        const all = await tx.plan.findMany({ where: { status: { notIn: ['archived', 'locked'] } }, select: { id: true, name: true, model: true } });
+        for (const p of all) {
+          if (p.id === saved.id || !(p.model as any)?.meta?.demo) continue;
+          await tx.plan.update({ where: { id: p.id }, data: { status: 'archived' } });
+          await tx.auditEntry.create({ data: { tenantId: ctx.tenantId, actorId: ctx.accountId, action: 'plan_archived', entity: 'plan', entityId: p.id, changes: { name: p.name, reason: 'demo hidden after import' } } });
+          hidden++;
+        }
+      }
+      const N = r.l1.closing.length;
+      return { ok: true, planId: saved.id, name, version: saved.version, weeks: N, closing: r.l1.closing[N - 1], hiddenDemo: hidden };
+    });
   }
 
   @Get() @KeyOk()

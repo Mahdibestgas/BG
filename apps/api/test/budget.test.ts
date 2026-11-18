@@ -235,3 +235,20 @@ test('only the system owner adds companies; each new company is its own space wi
     await O.call('POST', '/api/auth/switch', { tenantId: tenant });
   } finally { delete process.env.CF13_PLATFORM_OWNERS; }
 });
+
+test('a plan file uploads only when every engine check passes, and then hides the demo plan', async () => {
+  const fs = await import('node:fs');
+  const file = path.resolve(__dirname, '../../../../bank/out/bestgas_plan_unitcost_to2027_2026-11-18.json');
+  if (!fs.existsSync(file)) return;   // the bank output lives beside the repository, not in it
+  const model = JSON.parse(fs.readFileSync(file, 'utf8'));
+  assert.equal((await HR.call('POST', '/api/plans/import', { model })).status, 403, 'a department head cannot load plans');
+  assert.equal((await O.call('POST', '/api/plans/import', { model: { meta: {} } })).status, 400);
+  const broken = JSON.parse(JSON.stringify(model)); broken.template = 'nope';
+  assert.equal((await O.call('POST', '/api/plans/import', { model: broken })).body.error, 'unknown_template');
+  let r = await O.call('POST', '/api/plans/import', { model });
+  assert.equal(r.status, 201, JSON.stringify(r.body)); assert.equal(r.body.version, 1); assert.equal(r.body.weeks, 60);
+  const plans = await O.call('GET', '/api/plans');
+  assert.ok(!plans.body.plans.some((p: any) => p.demo), 'the demo plan is hidden');
+  r = await O.call('POST', '/api/plans/import', { model });
+  assert.equal(r.body.version, 2, 'same name: a new version, not a copy');
+});

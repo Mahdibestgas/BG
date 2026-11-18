@@ -18,6 +18,7 @@ import { BudgetHome, CompanyBudget, DeptBudget } from './screens/Budget';
 import { BudgetActuals, BudgetVariance, ComparePlans } from './screens/BudgetCycle';
 import { People } from './screens/People';
 import { Companies } from './screens/Companies';
+import { PlanImport } from './screens/PlanImport';
 import { Join } from './screens/Join';
 
 export interface Session {
@@ -108,6 +109,7 @@ export function App() {
           <Route path="/budget/:cycle/:dept" element={<DeptBudget />} />
           <Route path="/people" element={<People />} />
           <Route path="/companies" element={<Companies />} />
+          <Route path="/plans/import" element={<PlanImport />} />
           <Route path="/" element={<Overview />} />
           <Route path="/cash-flow" element={<CashFlow />} />
           <Route path="/analysis" element={<Analysis />} />

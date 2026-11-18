@@ -24,7 +24,7 @@ export function Shell({ children }: { children: ReactNode }) {
     ? [{ h: '', links: [['/budget', 'budget', L('Study, plan and budget', 'الدراسة والخطة والميزانية')]] }]
     : [
       ...(fin ? [{ h: L('Study, plan, budget', 'الدراسة والخطة والميزانية'), links: [['/budget', 'budget', L('Department budgets', 'ميزانيات الإدارات')]] as Array<[string, string, string]> }] : []),
-      { h: L('Cash forecast', 'التوقع النقدي'), links: [['/', 'overview', t('nav_overview')], ['/cash-flow', 'cash', t('nav_cash')], ['/analysis', 'analysis', t('nav_analysis')], ['/pnl', 'pnl', t('nav_pnl')], ['/balances', 'balances', t('nav_balances')]] },
+      { h: L('Cash forecast', 'التوقع النقدي'), links: [['/', 'overview', t('nav_overview')], ['/cash-flow', 'cash', t('nav_cash')], ['/analysis', 'analysis', t('nav_analysis')], ['/pnl', 'pnl', t('nav_pnl')], ['/balances', 'balances', t('nav_balances')], ...(fin ? [['/plans/import', 'cash', L('Load a plan file', 'تحميل ملف خطة')]] as Array<[string, string, string]> : [])] },
       { h: L('Reports', 'التقارير'), links: [...(fin ? [['/reports/budget-vs-actual', 'variance', L('Budget vs actual', 'الميزانية مقابل الفعلي')]] as Array<[string, string, string]> : []), ['/variance', 'variance', t('nav_variance')], ['/reports/compare', 'analysis', L('Compare plans', 'مقارنة الخطط')], ['/board', 'board', t('nav_board')]] },
       ...(fin ? [{ h: L('Administration', 'الإدارة'), links: [...(s.me.role === 'owner' ? [['/people', 'people', L('People and invitations', 'الفريق والدعوات')], ['/look', 'look', t('nav_brand')]] as Array<[string, string, string]> : []), ...(s.me.platformOwner ? [['/companies', 'balances', L('Companies', 'الشركات')]] as Array<[string, string, string]> : []), ['/activity', 'activity', t('nav_activity')]] as Array<[string, string, string]> }] : [])
     ];
@@ -55,7 +55,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
       </aside>
       <main id="main">
-        {s.plan?.demo && <div className="demo" role="note"><b>{t('demo')}</b> {t('demoText')}</div>}
+        {s.plan?.demo && <div className="demo" role="note"><b>{t('demo')}</b> {t('demoText')}{(s.me.role === 'owner' || s.me.role === 'finance') && <> <NavLink className="link" to="/plans/import">{L('Load your plan file', 'حمّل ملف خطتك')}</NavLink></>}</div>}
         {children}
       </main>
     </div>
