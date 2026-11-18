@@ -169,3 +169,52 @@ test('settings: owner only, version-checked, HR confirmation kept, and a city in
   const hr = await O.call('GET', `/api/budget/cycles/${cycle}/departments/hr`);
   assert.equal(hr.body.submission.body.lines.find((l: any) => l.item === 'hr_medical').amounts[0], 1000, 'a saved budget is not redrawn when the company rates change (1,200 a head, 10 people, /12)');
 });
+
+test('actuals: owner and finance only, a month is replaced as a whole, and bad rows are refused with their line', async () => {
+  const a = `/api/budget/cycles/${cycle}/actuals`;
+  assert.equal((await HR.call('GET', a)).status, 403, 'a department head cannot read actuals');
+  assert.equal((await HR.call('PUT', a, { rows: [] })).status, 403);
+  let r = await O.call('PUT', a, { rows: [{ month: '2027-01', item: 'op_fuel', region: 'riyadh', amount: 5000 }] });
+  assert.equal(r.status, 200, JSON.stringify(r.body)); assert.equal(r.body.rows, 1);
+  r = await O.call('PUT', a, { rows: [{ month: '2027-01', item: 'op_fuel', region: 'riyadh', amount: 7000 }], source: 'csv' });
+  assert.equal(r.status, 200);
+  r = await O.call('GET', a);
+  assert.equal(r.body.rows.length, 1, 're-importing a month never doubles it'); assert.equal(r.body.rows[0].amount, 7000);
+  r = await O.call('PUT', a, { rows: [{ month: '2026-12', item: 'op_fuel', region: 'riyadh', amount: 1 }] });
+  assert.equal(r.status, 400); assert.equal(r.body.error, 'month_outside_cycle:rows.0');
+  r = await O.call('PUT', a, { rows: [{ month: '2027-01', item: 'nope', region: 'riyadh', amount: 1 }] });
+  assert.equal(r.body.error, 'unknown_item:rows.0');
+  const other = await X.call('GET', a);
+  assert.ok([403, 404].includes(other.status), 'another company cannot reach this round');
+  const n = await asApp.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantX}, true)`;
+    return tx.$queryRawUnsafe<Array<{ c: bigint }>>('SELECT count(*)::bigint AS c FROM budget_actuals');
+  });
+  assert.equal(Number(n[0].c), 0, 'the database hides the actuals from another company');
+});
+
+test('budget against actual uses only approved departments and the months that have actuals', async () => {
+  assert.equal((await HR.call('GET', `/api/budget/cycles/${cycle}/variance`)).status, 403);
+  const r = await O.call('GET', `/api/budget/cycles/${cycle}/variance`);
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.deepEqual(r.body.actualMonths, ['2027-01']);
+  assert.ok(r.body.included.length >= 1 && r.body.included.every((x: any) => typeof x.revision === 'number'));
+  const fuel = r.body.rows.find((x: any) => x.item === 'op_fuel' && x.region === 'riyadh');
+  assert.ok(fuel, 'an actual with no budget still shows'); assert.equal(fuel.actual[0], 7000);
+});
+
+test('the approved budget becomes a cash plan: owner only, checked by the engine, a second run is a new version', async () => {
+  const p = `/api/budget/cycles/${cycle}/to-plan`;
+  assert.equal((await HR.call('POST', p, { openingCash: 100000 })).status, 403);
+  assert.equal((await O.call('POST', p, { openingCash: 'lots' })).status, 400);
+  let r = await O.call('POST', p, { openingCash: 100000 });
+  assert.equal(r.status, 201, JSON.stringify(r.body)); const id = r.body.planId;
+  assert.ok(Number.isFinite(r.body.closing) && Number.isFinite(r.body.lowest));
+  r = await O.call('POST', p, { openingCash: 150000 });
+  assert.equal(r.body.planId, id, 'same plan'); assert.equal(r.body.version, 2, 'new version');
+  const plans = await O.call('GET', '/api/plans');
+  const plan = plans.body.plans.find((x: any) => x.id === id);
+  assert.equal(plan.template, 'bank-history'); assert.ok(plan.name.endsWith('budget cash view'));
+  const f = await O.call('GET', `/api/plans/${id}/forecast`);
+  assert.equal(f.status, 200); assert.ok(f.body.forecast.checks.every((c: any) => c.ok), 'the engine checks pass');
+});
