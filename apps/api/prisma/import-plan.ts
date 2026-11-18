@@ -6,7 +6,8 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import dotenv from 'dotenv';
-dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+// CF13_NO_DOTENV=1 when loading into a hosted database: the local settings file must never mix in (it points at this PC's database)
+if (!process.env.CF13_NO_DOTENV) dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 import { PrismaClient } from '@prisma/client';
 import { forecast, type CoreModel } from '@cf13/engine';
 
@@ -31,15 +32,19 @@ async function main() {
   if (dry) return;
 
   const owner = new PrismaClient({ datasourceUrl: process.env.DATABASE_URL });     // only to find the company by slug
-  const app = new PrismaClient({ datasourceUrl: process.env.DATABASE_APP_URL });   // the write itself goes through RLS
+  // the write goes through RLS as cf13_app when its URL is known; on a hosted database the owner writes, scoped to the company
+  if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is not set');
+  const appUrl = process.env.DATABASE_APP_URL || process.env.DATABASE_URL;
+  if (new URL(appUrl).host !== new URL(process.env.DATABASE_URL).host) throw new Error('DATABASE_URL and DATABASE_APP_URL point at different servers');
+  const app = new PrismaClient({ datasourceUrl: appUrl });
   try {
     const [t] = await owner.$queryRaw<Array<{ id: string }>>`SELECT id FROM tenants WHERE slug = ${slug}`;
     if (!t) throw new Error('no company with slug ' + slug);
     const result = await app.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT set_config('app.tenant_id', ${t.id}, true)`;
-      const owners = await tx.membership.findMany({ where: { role: 'owner' }, select: { accountId: true } });
+      const owners = await tx.membership.findMany({ where: { tenantId: t.id, role: 'owner' }, select: { accountId: true } });
       const actor = owners[0]?.accountId ?? null;
-      const existing = await tx.plan.findFirst({ where: { name, status: { not: 'archived' } } });
+      const existing = await tx.plan.findFirst({ where: { tenantId: t.id, name, status: { not: 'archived' } } });
       let id: string, action: string;
       if (existing) {
         if (existing.status === 'locked') throw new Error('the plan "' + name + '" is locked');
@@ -54,7 +59,7 @@ async function main() {
       let archived = 0;
       const keep = flag('--keep'), arch = flag('--archive');
       if (arch.length) {
-        const all = await tx.plan.findMany({ where: { status: { notIn: ['archived', 'locked'] } }, select: { id: true, name: true } });
+        const all = await tx.plan.findMany({ where: { tenantId: t.id, status: { notIn: ['archived', 'locked'] } }, select: { id: true, name: true } });
         for (const p of all) {
           if (p.id === id) continue;
           if (arch.some((x) => p.name.startsWith(x)) && !keep.some((x) => p.name.startsWith(x))) {
