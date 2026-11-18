@@ -1,0 +1,41 @@
+import { useState } from 'react';
+import { api, ApiError } from '../api';
+import { useSession } from '../App';
+import { useI18n } from '../i18n';
+
+/** The system owner's list of companies, and a form to add one. Each company is a separate space. */
+export function Companies() {
+  const s = useSession();
+  const { lang, err } = useI18n();
+  const T = (en: string, ar: string) => (lang === 'ar' ? ar : en);
+  const [f, setF] = useState({ company: '', companyAr: '', template: 'lpg-distribution' }), [busy, setBusy] = useState(false), [e, setE] = useState('');
+  if (!s.me.platformOwner) return <p className="empty">{T('Only the system owner manages companies.', 'يدير الشركاتِ مالكُ النظام فقط.')}</p>;
+  async function create() {
+    setBusy(true); setE('');
+    try { await api('POST', '/api/auth/companies', f); await s.reload(); window.location.assign('/'); }
+    catch (x) { setE(err(x instanceof ApiError ? x.code : 'network')); setBusy(false); }
+  }
+  return (
+    <div className="bgt">
+      <div className="head"><div><h1>{T('Companies', 'الشركات')}</h1>
+        <p className="sub">{T('You own the whole system. Every company is a separate space: its people, budgets and plans never mix with another company. Switch between them at the bottom of the menu.', 'أنت مالك النظام كاملًا. كل شركة مساحة منفصلة: موظفوها وميزانياتها وخططها لا تختلط بشركة أخرى. بدّل بينها من أسفل القائمة.')}</p></div></div>
+      <section className="card">
+        <h2>{T('Your companies', 'شركاتك')}</h2>
+        <div className="khz-scroll"><table className="tbl"><thead><tr><th>{T('Company', 'الشركة')}</th><th>{T('Your role', 'دورك')}</th><th /></tr></thead>
+          <tbody>{s.me.companies.map((c) => <tr key={c.id}><td><b>{lang === 'ar' && c.nameAr ? c.nameAr : c.name}</b></td><td>{c.role}</td>
+            <td>{c.id === s.me.tenantId ? <span className="pill ok">{T('Open now', 'مفتوحة الآن')}</span> : <button type="button" className="link" onClick={() => s.switchTo(c.id)}>{T('Open', 'فتح')}</button>}</td></tr>)}</tbody></table></div>
+      </section>
+      <section className="card" style={{ marginTop: 20 }}>
+        <h2>{T('Add a company', 'إضافة شركة')}</h2>
+        <div className="bgt-form">
+          <label className="field"><span>{T('Name in English', 'الاسم بالإنجليزية')}</span><input value={f.company} maxLength={120} onChange={(x) => setF({ ...f, company: x.target.value })} /></label>
+          <label className="field"><span>{T('Name in Arabic', 'الاسم بالعربية')}</span><input dir="rtl" value={f.companyAr} maxLength={120} onChange={(x) => setF({ ...f, companyAr: x.target.value })} /></label>
+          <label className="field"><span>{T('Kind of business', 'نوع النشاط')}</span><select value={f.template} onChange={(x) => setF({ ...f, template: x.target.value })}>
+            <option value="lpg-distribution">{T('Gas distribution (like Best Gas)', 'توزيع الغاز (مثل بست غاز)')}</option>
+            <option value="generic">{T('Any other company', 'أي شركة أخرى')}</option></select></label>
+        </div>
+        <div className="actions"><button type="button" className="btn" disabled={busy || !f.company.trim()} onClick={create}>{T('Create the company', 'إنشاء الشركة')}</button>{e && <span className="msg err">{e}</span>}</div>
+      </section>
+    </div>
+  );
+}

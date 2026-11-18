@@ -3,7 +3,7 @@ import type { Request, Response } from 'express';
 import crypto from 'node:crypto';
 import { starterModel, TEMPLATES } from '@cf13/engine';
 import { Db } from './db';
-import { AppError, Context, Public, str, type Ctx, AnyMember } from './http';
+import { AppError, Context, Public, Roles, str, type Ctx, AnyMember } from './http';
 import { decoyHash, hashPassword, LOCK_AFTER, LOCK_MINUTES, SESSION_COOKIE, SESSION_HOURS, signSession, verifyPassword, type Role } from './security';
 import { DEFAULT_THEME } from './theme';
 import { firebaseWebConfig, verifyFirebaseToken } from './firebase';
@@ -40,6 +40,23 @@ export class AuthController {
       httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: SESSION_HOURS * 3600 * 1000
     });
   }
+  /** The owner of the whole system: the first account ever created, plus any email listed in CF13_PLATFORM_OWNERS. */
+  private async isPlatformOwner(accountId: string) {
+    const acc = await this.db.account.findUnique({ where: { id: accountId }, select: { email: true } });
+    if (!acc) return false;
+    const listed = (process.env.CF13_PLATFORM_OWNERS || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
+    if (listed.includes(acc.email)) return true;
+    const first = await this.db.account.findFirst({ orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: { id: true } });
+    return first?.id === accountId;
+  }
+  private async uniqueSlug(company: string) {
+    let slug = slugify(company);
+    for (let i = 0; (await this.db.$queryRaw<Array<{ t: boolean }>>`SELECT slug_taken(${slug}) AS t`)[0].t; i++) {
+      slug = slugify(company).slice(0, 34) + '-' + crypto.randomBytes(2).toString('hex');
+      if (i > 5) throw new AppError('slug_unavailable');
+    }
+    return slug;
+  }
   private async companies(accountId: string) {
     return this.db.$queryRaw<Array<{ tenant_id: string; slug: string; name: string; name_ar: string | null; role: Role }>>`
       SELECT * FROM account_memberships(${accountId}::uuid)`;
@@ -57,11 +74,7 @@ export class AuthController {
     const template = str(b?.template, 'template', 40);
     if (!Object.prototype.hasOwnProperty.call(TEMPLATES, template)) throw new AppError('unknown_template');
     if (await this.db.account.findUnique({ where: { email: em }, select: { id: true } })) throw new AppError('email_taken', 409);
-    let slug = slugify(company);
-    for (let i = 0; (await this.db.$queryRaw<Array<{ t: boolean }>>`SELECT slug_taken(${slug}) AS t`)[0].t; i++) {
-      slug = slugify(company).slice(0, 34) + '-' + crypto.randomBytes(2).toString('hex');
-      if (i > 5) throw new AppError('slug_unavailable');
-    }
+    const slug = await this.uniqueSlug(company);
     const hash = await hashPassword(pw);
     const tenantId = crypto.randomUUID();
     // one transaction: a failure anywhere leaves no account behind, so the email is never stranded
@@ -143,7 +156,33 @@ export class AuthController {
     const acc = await this.db.account.findUnique({ where: { id: ctx.accountId }, select: { id: true, name: true, email: true, language: true } });
     const companies = await this.companies(ctx.accountId);
     return { ok: true, account: acc, role: ctx.role, department: ctx.department ?? null, tenantId: ctx.tenantId,
-      companies: companies.map((c) => ({ id: c.tenant_id, slug: c.slug, name: c.name, nameAr: c.name_ar, role: c.role })) };
+      companies: companies.map((c) => ({ id: c.tenant_id, slug: c.slug, name: c.name, nameAr: c.name_ar, role: c.role })),
+      platformOwner: await this.isPlatformOwner(ctx.accountId) };
+  }
+
+  /**
+   * The system owner adds a company: its own separate space, with the system owner as its owner and a starter plan.
+   * Works while public sign-up is closed; the session moves to the new company.
+   */
+  @Post('companies') @Roles('owner')
+  async createCompany(@Context() ctx: Ctx, @Body() b: any, @Res({ passthrough: true }) res: Response) {
+    if (!(await this.isPlatformOwner(ctx.accountId))) throw new AppError('forbidden', 403);
+    const company = str(b?.company, 'company', 120);
+    const companyAr = str(b?.companyAr, 'companyAr', 120, false) || null;
+    const template = str(b?.template, 'template', 40);
+    if (!Object.prototype.hasOwnProperty.call(TEMPLATES, template)) throw new AppError('unknown_template');
+    const slug = await this.uniqueSlug(company);
+    const tenantId = crypto.randomUUID();
+    await this.db.inTenant(tenantId, async (tx) => {
+      await tx.tenant.create({ data: { id: tenantId, slug, name: company, nameAr: companyAr, template } });
+      await tx.membership.create({ data: { tenantId, accountId: ctx.accountId, role: 'owner' } });
+      await tx.branding.create({ data: { tenantId, theme: DEFAULT_THEME as any } });
+      const plan = await tx.plan.create({ data: { tenantId, name: 'First plan (demo figures)', model: starterModel(template, thisSunday()) as any, createdBy: ctx.accountId } });
+      await tx.auditEntry.create({ data: { tenantId, actorId: ctx.accountId, action: 'company_created', entity: 'tenant', entityId: tenantId, changes: { template, plan: plan.id, by: 'platform_owner', from: ctx.tenantId } } });
+    });
+    const acc = await this.db.account.findUniqueOrThrow({ where: { id: ctx.accountId }, select: { sessionEpoch: true } });
+    this.setCookie(res, signSession({ sub: ctx.accountId, tid: tenantId, role: 'owner', ep: acc.sessionEpoch }));
+    return { ok: true, tenant: { id: tenantId, slug, name: company } };
   }
 
   /** Move this session to another company the person belongs to. */

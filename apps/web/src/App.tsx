@@ -17,6 +17,7 @@ import { Pnl } from './screens/Pnl';
 import { BudgetHome, CompanyBudget, DeptBudget } from './screens/Budget';
 import { BudgetActuals, BudgetVariance, ComparePlans } from './screens/BudgetCycle';
 import { People } from './screens/People';
+import { Companies } from './screens/Companies';
 import { Join } from './screens/Join';
 
 export interface Session {
@@ -106,6 +107,7 @@ export function App() {
           <Route path="/reports/compare" element={<ComparePlans />} />
           <Route path="/budget/:cycle/:dept" element={<DeptBudget />} />
           <Route path="/people" element={<People />} />
+          <Route path="/companies" element={<Companies />} />
           <Route path="/" element={<Overview />} />
           <Route path="/cash-flow" element={<CashFlow />} />
           <Route path="/analysis" element={<Analysis />} />

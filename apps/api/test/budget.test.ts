@@ -218,3 +218,20 @@ test('the approved budget becomes a cash plan: owner only, checked by the engine
   const f = await O.call('GET', `/api/plans/${id}/forecast`);
   assert.equal(f.status, 200); assert.ok(f.body.forecast.checks.every((c: any) => c.ok), 'the engine checks pass');
 });
+
+test('only the system owner adds companies; each new company is its own space with them as owner', async () => {
+  const body = { company: 'Second Co ' + run, companyAr: 'شركة ثانية', template: 'generic' };
+  process.env.CF13_PLATFORM_OWNERS = `test-o-${run}@example.com`;
+  try {
+    assert.equal((await X.call('POST', '/api/auth/companies', body)).status, 403, 'another company owner is not the system owner');
+    assert.equal((await HR.call('POST', '/api/auth/companies', body)).status, 403, 'a department head cannot');
+    const me = await O.call('GET', '/api/auth/me'); assert.equal(me.body.platformOwner, true);
+    const r = await O.call('POST', '/api/auth/companies', body);
+    assert.equal(r.status, 201, JSON.stringify(r.body));
+    const now = await O.call('GET', '/api/auth/me');
+    assert.equal(now.body.tenantId, r.body.tenant.id, 'the session moves to the new company'); assert.equal(now.body.role, 'owner');
+    assert.equal(now.body.companies.length, 2);
+    assert.equal((await O.call('GET', `/api/budget/cycles/${cycle}/variance`)).status, 404, 'the first company data is not visible from the new one');
+    await O.call('POST', '/api/auth/switch', { tenantId: tenant });
+  } finally { delete process.env.CF13_PLATFORM_OWNERS; }
+});

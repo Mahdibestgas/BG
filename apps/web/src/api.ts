@@ -25,7 +25,7 @@ export async function api<T = any>(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'D
 // ---- shapes the screens use
 export interface Txt { en: string; ar: string }
 export interface Company { id: string; slug: string; name: string; nameAr: string | null; role: 'owner' | 'finance' | 'viewer' | 'contributor' }
-export interface Me { account: { id: string; name: string; email: string; language: string }; role: Company['role']; department: string | null; tenantId: string; companies: Company[] }
+export interface Me { account: { id: string; name: string; email: string; language: string }; role: Company['role']; department: string | null; tenantId: string; companies: Company[]; platformOwner?: boolean }
 export interface PlanSummary { id: string; name: string; status: string; version: number; startDate: string; weeks: number; template: string; demo: boolean }
 export interface Category extends Txt { id: string; section: 'receipts' | 'payments' | 'financing'; group: string }
 export interface L3Row { l3: string; label: Txt; values: number[]; items: number }
