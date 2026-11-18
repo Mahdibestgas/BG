@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@cf13/engine": "*",
+    "@cf13/budget": "*",
     "@cf13/theme": "*",
     "@nestjs/common": "11.2.8",
     "@nestjs/core": "11.2.8",

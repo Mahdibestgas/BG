@@ -22,7 +22,8 @@ let decoy: Promise<string> | null = null;
 export function decoyHash(): Promise<string> { return decoy || (decoy = hashPassword(crypto.randomBytes(12).toString('hex'))); }
 
 export interface Session { sub: string; tid: string; role: Role; ep: number; exp: number; iat: number }
-export type Role = 'owner' | 'finance' | 'viewer';
+/** contributor: a department head who prepares that one department's budget and sees nothing else. */
+export type Role = 'owner' | 'finance' | 'viewer' | 'contributor';
 export const SESSION_COOKIE = 'cf13';
 export const SESSION_HOURS = 8;
 

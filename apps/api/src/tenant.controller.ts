@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Inject, Put, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { Db } from './db';
-import { AppError, Context, Roles, type Ctx } from './http';
+import { AppError, Context, Roles, type Ctx, AnyMember } from './http';
 import { checkTheme } from './theme';
 
 const LOGO_TYPES: Record<string, number[]> = {
@@ -15,7 +15,7 @@ const LOGO_MAX = 512 * 1024;
 export class TenantController {
   constructor(@Inject(Db) private readonly db: Db) {}
 
-  @Get()
+  @Get() @AnyMember()
   async get(@Context() ctx: Ctx) {
     return this.db.inTenant(ctx.tenantId, async (tx) => {
       const t = await tx.tenant.findUniqueOrThrow({ where: { id: ctx.tenantId }, select: { id: true, slug: true, name: true, nameAr: true, template: true, status: true } });
@@ -25,7 +25,7 @@ export class TenantController {
   }
 
   /** The logo itself, only ever to a member of its company. */
-  @Get('logo')
+  @Get('logo') @AnyMember()
   async logo(@Context() ctx: Ctx, @Res() res: Response) {
     const b = await this.db.inTenant(ctx.tenantId, (tx) => tx.branding.findUnique({ where: { tenantId: ctx.tenantId }, select: { logo: true, logoType: true } }));
     if (!b?.logo || !b.logoType) throw new AppError('not_found', 404);

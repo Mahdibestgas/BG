@@ -8,6 +8,7 @@ import helmet from 'helmet';
 import { ApiKeysController } from './apikeys.controller';
 import { Auth2Controller } from './auth2.controller';
 import { AuthController } from './auth.controller';
+import { BudgetController } from './budget.controller';
 import { MembersController } from './members.controller';
 import { DocsController } from './openapi';
 import { Db } from './db';
@@ -17,7 +18,7 @@ import { RateLimitGuard } from './ratelimit';
 import { AuditController, TenantController } from './tenant.controller';
 
 @Module({
-  controllers: [AuthController, PlansController, TenantController, AuditController, ApiKeysController, DocsController, Auth2Controller, MembersController],
+  controllers: [AuthController, PlansController, TenantController, AuditController, ApiKeysController, DocsController, Auth2Controller, MembersController, BudgetController],
   providers: [Db, { provide: APP_GUARD, useClass: RateLimitGuard }, { provide: APP_GUARD, useClass: AuthGuard }, { provide: APP_FILTER, useClass: ErrorFilter }]
 })
 class AppModule {}

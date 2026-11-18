@@ -46,6 +46,9 @@ SELECT apply_tenant_rls('plans', 'tenant_id');
 SELECT apply_tenant_rls('audit', 'tenant_id');
 SELECT apply_tenant_rls('api_keys', 'tenant_id');
 SELECT apply_tenant_rls('invitations', 'tenant_id');
+SELECT apply_tenant_rls('budget_settings', 'tenant_id');
+SELECT apply_tenant_rls('budget_cycles', 'tenant_id');
+SELECT apply_tenant_rls('budget_submissions', 'tenant_id');
 
 -- Sign-in happens before a company is chosen: this is the one way to learn
 -- which companies an account belongs to. It returns only that account's rows.
@@ -79,10 +82,12 @@ REVOKE ALL ON FUNCTION api_key_lookup(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION api_key_lookup(text) TO cf13_app;
 
 -- An invitation link arrives before any company is chosen. Resolves only the exact token hash, only while still open.
+-- (the department column was added later: the return type changed, so the old function is dropped first)
+DROP FUNCTION IF EXISTS invite_lookup(text);
 CREATE OR REPLACE FUNCTION invite_lookup(h text)
-RETURNS TABLE (id uuid, tenant_id uuid, email text, role text, tenant_name text)
+RETURNS TABLE (id uuid, tenant_id uuid, email text, role text, tenant_name text, department text)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  SELECT i.id, i.tenant_id, i.email, i.role, t.name FROM invitations i JOIN tenants t ON t.id = i.tenant_id
+  SELECT i.id, i.tenant_id, i.email, i.role, t.name, i.department FROM invitations i JOIN tenants t ON t.id = i.tenant_id
   WHERE i.token_hash = h AND i.accepted_at IS NULL AND i.revoked_at IS NULL AND i.expires_at > now() AND t.status <> 'closed'
 $$;
 REVOKE ALL ON FUNCTION invite_lookup(text) FROM PUBLIC;

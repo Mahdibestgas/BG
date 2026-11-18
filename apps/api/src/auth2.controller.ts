@@ -3,7 +3,7 @@ import type { Request, Response } from 'express';
 import crypto from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { Db } from './db';
-import { AppError, Context, Public, str, type Ctx } from './http';
+import { AppError, Context, Public, str, type Ctx, AnyMember } from './http';
 import { hashPassword, SESSION_COOKIE, SESSION_HOURS, sha256, signSession, verifyPassword, type Role } from './security';
 import { newTotpSecret, openSecret, otpauthUri, sealSecret, verifyTotp } from './totp';
 
@@ -17,7 +17,7 @@ function newPassword(v: unknown): string {
 const cookie = (res: Response, token: string) => res.cookie(SESSION_COOKIE, token, { httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: SESSION_HOURS * 3600 * 1000 });
 
 /** Joining a company by invitation, resetting a password by an owner-issued link, and two-factor set-up. */
-@Controller('api/auth')
+@Controller('api/auth') @AnyMember()
 export class Auth2Controller {
   constructor(@Inject(Db) private readonly db: Db) {}
 
@@ -45,7 +45,7 @@ export class Auth2Controller {
     await this.db.inTenant(inv.tenant_id, async (tx) => {
       const used = await tx.invitation.updateMany({ where: { id: inv.id, acceptedAt: null, revokedAt: null }, data: { acceptedAt: new Date() } });
       if (used.count !== 1) throw new AppError('invalid_invite', 410);
-      await tx.membership.upsert({ where: { tenantId_accountId: { tenantId: inv.tenant_id, accountId } }, create: { tenantId: inv.tenant_id, accountId, role: inv.role }, update: {} });
+      await tx.membership.upsert({ where: { tenantId_accountId: { tenantId: inv.tenant_id, accountId } }, create: { tenantId: inv.tenant_id, accountId, role: inv.role, department: inv.role === 'contributor' ? inv.department : null }, update: {} });
       await tx.auditEntry.create({ data: { tenantId: inv.tenant_id, actorId: accountId, action: 'invite_accepted', entity: 'invitation', entityId: inv.id, changes: { email: inv.email, role: inv.role, ip: req.ip } } });
     });
     cookie(res, signSession({ sub: accountId, tid: inv.tenant_id, role: inv.role as Role, ep: acc.sessionEpoch }));
@@ -54,7 +54,7 @@ export class Auth2Controller {
 
   private async invite(token: unknown) {
     const t = typeof token === 'string' && /^cf13i_[A-Za-z0-9_-]{20,80}$/.test(token) ? token : '';
-    const rows = t ? await this.db.$queryRaw<Array<{ id: string; tenant_id: string; email: string; role: string; tenant_name: string }>>`SELECT * FROM invite_lookup(${sha256(t)})` : [];
+    const rows = t ? await this.db.$queryRaw<Array<{ id: string; tenant_id: string; email: string; role: string; tenant_name: string; department: string | null }>>`SELECT * FROM invite_lookup(${sha256(t)})` : [];
     if (!rows.length) throw new AppError('invalid_invite', 410);
     return rows[0];
   }

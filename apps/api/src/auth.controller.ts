@@ -3,7 +3,7 @@ import type { Request, Response } from 'express';
 import crypto from 'node:crypto';
 import { starterModel, TEMPLATES } from '@cf13/engine';
 import { Db } from './db';
-import { AppError, Context, Public, str, type Ctx } from './http';
+import { AppError, Context, Public, str, type Ctx, AnyMember } from './http';
 import { decoyHash, hashPassword, LOCK_AFTER, LOCK_MINUTES, SESSION_COOKIE, SESSION_HOURS, signSession, verifyPassword, type Role } from './security';
 import { DEFAULT_THEME } from './theme';
 import { firebaseWebConfig, verifyFirebaseToken } from './firebase';
@@ -31,7 +31,7 @@ function slugify(name: string): string {
   return name.toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/[\s_]+/g, '-').replace(/-+/g, '-').slice(0, 40) || 'company';
 }
 
-@Controller('api/auth')
+@Controller('api/auth') @AnyMember()
 export class AuthController {
   constructor(@Inject(Db) private readonly db: Db) {}
 
@@ -142,7 +142,7 @@ export class AuthController {
   async me(@Context() ctx: Ctx) {
     const acc = await this.db.account.findUnique({ where: { id: ctx.accountId }, select: { id: true, name: true, email: true, language: true } });
     const companies = await this.companies(ctx.accountId);
-    return { ok: true, account: acc, role: ctx.role, tenantId: ctx.tenantId,
+    return { ok: true, account: acc, role: ctx.role, department: ctx.department ?? null, tenantId: ctx.tenantId,
       companies: companies.map((c) => ({ id: c.tenant_id, slug: c.slug, name: c.name, nameAr: c.name_ar, role: c.role })) };
   }
 

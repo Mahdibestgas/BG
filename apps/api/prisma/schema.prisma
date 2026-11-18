@@ -28,6 +28,9 @@ model Tenant {
   audit       AuditEntry[]
   apiKeys     ApiKey[]
   invitations Invitation[]
+  budgetSettings BudgetSettings?
+  budgetCycles   BudgetCycle[]
+  budgetSubmissions BudgetSubmission[]
 
   @@map("tenants")
 }
@@ -58,7 +61,8 @@ model Membership {
   id        String   @id @default(uuid()) @db.Uuid
   tenantId  String   @map("tenant_id") @db.Uuid
   accountId String   @map("account_id") @db.Uuid
-  role      String   // owner | finance | viewer
+  role      String   // owner | finance | viewer | contributor
+  department String? // contributor only: the one department whose budget this person prepares
   createdAt DateTime @default(now()) @map("created_at")
 
   tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -141,6 +145,7 @@ model Invitation {
   tenantId   String    @map("tenant_id") @db.Uuid
   email      String
   role       String
+  department String?
   tokenHash  String    @unique @map("token_hash")
   invitedBy  String?   @map("invited_by") @db.Uuid
   createdAt  DateTime  @default(now()) @map("created_at")
@@ -168,4 +173,67 @@ model ResetToken {
 
   @@index([accountId])
   @@map("reset_tokens")
+}
+
+/// A company's budget set-up: its template pack, its cities and the HR cost parameters, dated and confirmed by HR.
+model BudgetSettings {
+  tenantId  String   @id @map("tenant_id") @db.Uuid
+  pack      String   @default("ksa-lpg")
+  regions   Json
+  params    Json
+  version   Int      @default(1)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("budget_settings")
+}
+
+/// One budget round, for example "Budget 2027": the months it covers and when departments must submit.
+model BudgetCycle {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  name       String
+  startMonth String   @map("start_month")   // YYYY-MM
+  months     Int
+  status     String   @default("open")      // open | closed
+  deadline   String?                         // YYYY-MM-DD
+  version    Int      @default(1)
+  createdBy  String?  @map("created_by") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  submissions BudgetSubmission[]
+
+  @@index([tenantId])
+  @@map("budget_cycles")
+}
+
+/// One department's budget in a cycle. Draft and returned can be edited; submitted waits for the owner;
+/// approved never changes again: a change after approval is a new revision.
+model BudgetSubmission {
+  id            String    @id @default(uuid()) @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  cycleId       String    @map("cycle_id") @db.Uuid
+  department    String
+  revision      Int       @default(1)
+  status        String    @default("draft")   // draft | submitted | approved | returned
+  body          Json                            // { lines, positions }
+  version       Int       @default(1)
+  createdBy     String?   @map("created_by") @db.Uuid
+  submittedBy   String?   @map("submitted_by") @db.Uuid
+  submittedAt   DateTime? @map("submitted_at")
+  reviewedBy    String?   @map("reviewed_by") @db.Uuid
+  reviewedAt    DateTime? @map("reviewed_at")
+  reviewComment String?   @map("review_comment")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  tenant Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  cycle  BudgetCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@unique([cycleId, department, revision])
+  @@index([tenantId, cycleId])
+  @@map("budget_submissions")
 }

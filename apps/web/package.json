@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@cf13/budget": "*",
     "@cf13/theme": "*",
     "firebase": "^13.2.0",
     "react": "18.3.1",

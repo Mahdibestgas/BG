@@ -2,8 +2,16 @@ import { Body, Controller, Delete, Get, Inject, Param, Patch, Post } from '@nest
 import { Db } from './db';
 import { AppError, Context, isUuid, Roles, str, type Ctx } from './http';
 import { newToken } from './security';
+import { KSA_LPG } from '@cf13/budget';
 
-const ROLES = ['owner', 'finance', 'viewer'];
+const ROLES = ['owner', 'finance', 'viewer', 'contributor'];
+/** A department head belongs to exactly one department of the company's budget pack. */
+function departmentFor(role: string, v: unknown): string | null {
+  if (role !== 'contributor') return null;
+  const d = typeof v === 'string' ? v : '';
+  if (!KSA_LPG.departments.some((x) => x.id === d)) throw new AppError('invalid_department');
+  return d;
+}
 const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,190}\.[a-z]{2,}$/i;
 
 /** People in the company. Owners invite, change roles, remove, and issue password-reset links. Links are shown once. */
@@ -15,8 +23,8 @@ export class MembersController {
   async list(@Context() ctx: Ctx) {
     return this.db.inTenant(ctx.tenantId, async (tx) => {
       const ms = await tx.membership.findMany({ orderBy: { createdAt: 'asc' }, include: { account: { select: { id: true, name: true, email: true, totpEnabled: true } } } });
-      const inv = await tx.invitation.findMany({ where: { acceptedAt: null, revokedAt: null, expiresAt: { gt: new Date() } }, orderBy: { createdAt: 'desc' }, select: { id: true, email: true, role: true, createdAt: true, expiresAt: true } });
-      return { ok: true, you: ctx.accountId, members: ms.map((m) => ({ accountId: m.accountId, name: m.account.name, email: m.account.email, role: m.role, twoFactor: m.account.totpEnabled, since: m.createdAt })), invitations: inv };
+      const inv = await tx.invitation.findMany({ where: { acceptedAt: null, revokedAt: null, expiresAt: { gt: new Date() } }, orderBy: { createdAt: 'desc' }, select: { id: true, email: true, role: true, department: true, createdAt: true, expiresAt: true } });
+      return { ok: true, you: ctx.accountId, members: ms.map((m) => ({ accountId: m.accountId, name: m.account.name, email: m.account.email, role: m.role, department: m.department, twoFactor: m.account.totpEnabled, since: m.createdAt })), invitations: inv };
     });
   }
 
@@ -26,14 +34,15 @@ export class MembersController {
     if (!EMAIL.test(email)) throw new AppError('invalid_email');
     const role = str(b?.role, 'role', 20);
     if (!ROLES.includes(role)) throw new AppError('invalid_role');
+    const department = departmentFor(role, b?.department);
     const days = b?.days === undefined ? 7 : Number(b.days);
     if (!Number.isInteger(days) || days < 1 || days > 30) throw new AppError('invalid_number:days');
     const t = newToken('cf13i_');
     const row = await this.db.inTenant(ctx.tenantId, async (tx) => {
       if (await tx.membership.count({ where: { account: { email } } })) throw new AppError('already_member', 409);
       if (await tx.invitation.count({ where: { email, acceptedAt: null, revokedAt: null, expiresAt: { gt: new Date() } } }) >= 1) throw new AppError('already_invited', 409);
-      const r = await tx.invitation.create({ data: { tenantId: ctx.tenantId, email, role, tokenHash: t.hash, invitedBy: ctx.accountId, expiresAt: new Date(Date.now() + days * 86_400_000) } });
-      await tx.auditEntry.create({ data: { tenantId: ctx.tenantId, actorId: ctx.accountId, action: 'invite_created', entity: 'invitation', entityId: r.id, changes: { email, role, days } } });
+      const r = await tx.invitation.create({ data: { tenantId: ctx.tenantId, email, role, department, tokenHash: t.hash, invitedBy: ctx.accountId, expiresAt: new Date(Date.now() + days * 86_400_000) } });
+      await tx.auditEntry.create({ data: { tenantId: ctx.tenantId, actorId: ctx.accountId, action: 'invite_created', entity: 'invitation', entityId: r.id, changes: { email, role, department, days } } });
       return r;
     });
     return { ok: true, id: row.id, token: t.token, path: '/join/' + t.token, expiresAt: row.expiresAt };
@@ -55,12 +64,13 @@ export class MembersController {
     if (!isUuid(accountId)) throw new AppError('not_found', 404);
     const role = str(b?.role, 'role', 20);
     if (!ROLES.includes(role)) throw new AppError('invalid_role');
+    const department = departmentFor(role, b?.department);
     await this.db.inTenant(ctx.tenantId, async (tx) => {
       const m = await tx.membership.findFirst({ where: { accountId } });
       if (!m) throw new AppError('not_found', 404);
       if (m.role === 'owner' && role !== 'owner' && (await tx.membership.count({ where: { role: 'owner' } })) <= 1) throw new AppError('last_owner', 409);
-      await tx.membership.update({ where: { id: m.id }, data: { role } });
-      await tx.auditEntry.create({ data: { tenantId: ctx.tenantId, actorId: ctx.accountId, action: 'member_role_changed', entity: 'account', entityId: accountId, changes: { from: m.role, to: role } } });
+      await tx.membership.update({ where: { id: m.id }, data: { role, department } });
+      await tx.auditEntry.create({ data: { tenantId: ctx.tenantId, actorId: ctx.accountId, action: 'member_role_changed', entity: 'account', entityId: accountId, changes: { from: m.role, to: role, department } } });
     });
     return { ok: true };
   }

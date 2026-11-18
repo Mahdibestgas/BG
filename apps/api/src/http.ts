@@ -31,12 +31,14 @@ export class ErrorFilter implements ExceptionFilter {
   }
 }
 
-export interface Ctx { accountId: string; tenantId: string; role: Role; viaKey?: string }
+export interface Ctx { accountId: string; tenantId: string; role: Role; department?: string | null; viaKey?: string }
 export const CTX = Symbol('ctx');
 export const Public = () => SetMetadata('public', true);
 /** Routes an API key may call. Everything else refuses keys. Keys are read-only. */
 export const KeyOk = () => SetMetadata('keyOk', true);
 export const Roles = (...roles: Role[]) => SetMetadata('roles', roles);
+/** Routes about the person's own account and the company's name and look, open to every member, department heads included. */
+export const AnyMember = () => SetMetadata('anyMember', true);
 export const Context = createParamDecorator((_: unknown, ec: ExecutionContext): Ctx => (ec.switchToHttp().getRequest() as any)[CTX]);
 
 /**
@@ -69,11 +71,15 @@ export class AuthGuard implements CanActivate {
     if (!s) throw new AppError('auth_required', 401);
     const acc = await this.db.account.findUnique({ where: { id: s.sub }, select: { sessionEpoch: true } });
     if (!acc || acc.sessionEpoch !== s.ep) throw new AppError('auth_required', 401);
-    const m = await this.db.inTenant(s.tid, (tx) => tx.membership.findFirst({ where: { accountId: s.sub }, select: { role: true } }));
+    const m = await this.db.inTenant(s.tid, (tx) => tx.membership.findFirst({ where: { accountId: s.sub }, select: { role: true, department: true } }));
     if (!m) throw new AppError('auth_required', 401);
-    const ctx: Ctx = { accountId: s.sub, tenantId: s.tid, role: m.role as Role };
+    // the department always comes from the membership row, never from the request
+    const ctx: Ctx = { accountId: s.sub, tenantId: s.tid, role: m.role as Role, department: m.department };
     (req as any)[CTX] = ctx;
     const roles = this.reflector.getAllAndOverride<Role[] | undefined>('roles', [ec.getHandler(), ec.getClass()]);
+    // deny by default: a department head reaches only routes that name the role, or are open to any member
+    if (ctx.role === 'contributor' && !(roles && roles.includes('contributor')) && !this.reflector.getAllAndOverride<boolean>('anyMember', [ec.getHandler(), ec.getClass()]))
+      throw new AppError('forbidden', 403);
     if (roles && !roles.includes(ctx.role)) throw new AppError('forbidden', 403);
     return true;
   }
