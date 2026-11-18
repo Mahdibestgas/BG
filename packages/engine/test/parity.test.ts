@@ -11,9 +11,13 @@ import { forecast, rollupL3, EngineError, type LpgModel, type ForecastResult } f
 const DEMO: LpgModel = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/demo-lpg.json'), 'utf8'));
 const clone = <T>(o: T): T => JSON.parse(JSON.stringify(o));
 
-// the reference engine, unmodified
+// the reference engine, unmodified. It lives beside this repository (app/Forecast.gs), so a clone on its
+// own (CI) skips the reference comparison; the Excel cell-by-cell checks below still run everywhere.
+const REF_FILE = path.join(__dirname, '../../../../app/Forecast.gs');
+const HAVE_REF = fs.existsSync(REF_FILE);
+const NO_REF = HAVE_REF ? false : 'reference engine app/Forecast.gs is not beside this checkout';
 const ref = vm.createContext({});
-vm.runInContext(fs.readFileSync(path.join(__dirname, '../../../../app/Forecast.gs'), 'utf8'), ref);
+if (HAVE_REF) vm.runInContext(fs.readFileSync(REF_FILE, 'utf8'), ref);
 // copied out of the sandbox, so its arrays compare like ours (deepEqual checks prototypes)
 const runRef = (m: unknown) => JSON.parse(JSON.stringify((ref as any).runForecast_(JSON.parse(JSON.stringify(m)))));
 
@@ -33,9 +37,9 @@ function sameAsReference(m: LpgModel, label: string) {
   return r;
 }
 
-test('same as the reference engine, base demo plan', () => { sameAsReference(clone(DEMO), 'base'); });
+test('same as the reference engine, base demo plan', { skip: NO_REF }, () => { sameAsReference(clone(DEMO), 'base'); });
 
-test('same as the reference engine across scenarios, filings, schedules and an overdraft', () => {
+test('same as the reference engine across scenarios, filings, schedules and an overdraft', { skip: NO_REF }, () => {
   const cases: Array<[string, (m: LpgModel) => void]> = [
     ['upside', (m) => { m.scenarios.active = 'upside'; }],
     ['downside', (m) => { m.scenarios.active = 'downside'; }],
