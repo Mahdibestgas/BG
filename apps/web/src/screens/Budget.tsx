@@ -8,7 +8,7 @@ import { useI18n } from '../i18n';
 import { acc, date, m } from '../format';
 import { EMPTY_PLAN, EMPTY_STUDY, type DeptPlan, type Study } from '@cf13/budget';
 import { PlanEditor, StudyEditor, ToCashPlan } from './BudgetCycle';
-import { CountUp, deptColor, Donut, HBars, MonthColumns } from '../ui/bgtCharts';
+import { CountUp, deptColor, Donut, HBars, MoneyFlow, MonthColumns } from '../ui/bgtCharts';
 
 // ---------------------------------------------------------------- shared
 export interface Cycle { id: string; name: string; startMonth: string; months: number; monthKeys: string[]; status: 'open' | 'closed'; deadline: string | null; version: number }
@@ -142,10 +142,18 @@ function progressOf(d: any): number {
 function Cylinders({ cycleId, departments }: { cycleId: string; departments: any[] }) {
   const { lang, txt } = useI18n();
   const T = (en: string, ar: string) => (lang === 'ar' ? ar : en);
+  const tot = (k: 'revenue' | 'costs' | 'capex') => departments.reduce((t, d) => t + (d.totals ? d.totals[k] || 0 : 0), 0);
+  const approved = departments.filter((d) => d.status === 'approved').length, waiting = departments.filter((d) => d.status === 'submitted').length;
   const stage = (d: any) => d.status === 'approved' ? T('Approved', 'معتمدة') : d.status === 'submitted' ? T('Waiting for you', 'بانتظارك') : d.status === 'returned' ? T('Returned', 'أعيدت') : !d.readiness ? T('Not started', 'لم تبدأ') : d.readiness.lines ? T('Budgeting', 'يعدّ الميزانية') : d.readiness.vision || d.readiness.objectives ? T('Planning', 'يخطط') : T('Studying', 'يدرس');
   const done = departments.filter((d) => d.status === 'approved').length;
   return (
     <div className="cyl-wrap">
+      <div className="an-kpis sm round-kpis">
+        <div className="an-kpi sm t-rec"><span className="l">{T('Revenue in the budgets', 'الإيرادات في الميزانيات')}</span><span className="v num"><CountUp value={tot('revenue')} format={m} /></span></div>
+        <div className="an-kpi sm t-pay"><span className="l">{T('Costs', 'التكاليف')}</span><span className="v num"><CountUp value={tot('costs')} format={m} /></span></div>
+        <div className="an-kpi sm t-brand"><span className="l">{T('Capex', 'الرأسمالية')}</span><span className="v num"><CountUp value={tot('capex')} format={m} /></span></div>
+        <div className="an-kpi sm t-brand"><span className="l">{T('Approved', 'المعتمد')}</span><span className="v num"><CountUp value={departments.length ? (approved / departments.length) * 100 : 0} format={(x) => Math.round(x) + '%'} /></span><span className="s">{waiting ? T(`${waiting} waiting for you`, `${waiting} بانتظارك`) : T('none waiting', 'لا شيء بانتظارك')}</span></div>
+      </div>
       <p className="sub cyl-note">{T(`${done} of ${departments.length} departments approved`, `${done} من ${departments.length} إدارات معتمدة`)}</p>
       <div className="cyl-row">
         {departments.map((d, i) => {
@@ -573,6 +581,14 @@ export function CompanyBudget() {
         <section className="card wide"><h2>{T('Revenue, costs and EBITDA by month', 'الإيرادات والتكاليف وEBITDA شهريًا')}</h2>
           <MonthColumns months={keys.map((k) => monthLabel(k, lang))} revenue={b.total.revenue} costs={keys.map((_, k) => b.total.cogs[k] + b.total.opex[k] + b.ebitdaNoncash[k])} line={ebitda}
             labels={{ revenue: T('Revenue', 'الإيرادات'), costs: T('Cost of sales and running costs', 'تكلفة المبيعات والمصاريف'), line: 'EBITDA' }} /></section>
+        {sum(b.total.revenue) > 0 && <section className="card wide"><h2>{T('Where the revenue goes', 'أين تذهب الإيرادات')}</h2>
+          <p className="sub">{T('Every riyal of budgeted revenue, followed to gas and cost of sales, to the running costs of each department, and to what is left as EBITDA. Hover a band.', 'كل ريال من الإيرادات المخططة حتى الغاز وتكلفة المبيعات ومصاريف كل إدارة وما يتبقى EBITDA. مرّر على أي مسار.')}</p>
+          <MoneyFlow source={{ label: T('Revenue', 'الإيرادات'), value: sum(b.total.revenue) }} labels={{ share: T('of revenue', 'من الإيرادات') }}
+            flows={[
+              { id: 'cogs', label: T('Gas and cost of sales', 'الغاز وتكلفة المبيعات'), value: sum(b.total.cogs), color: 'var(--pay)' },
+              ...meta.pack.allDepartments.map((d, i) => ({ id: d.id, label: txt(d.name), color: deptColor(i), value: (() => { const k = b.byDept[d.id]; return k ? sum(k.opex) + sum(k.noncash) : 0; })() })),
+              { id: 'ebitda', label: 'EBITDA', value: Math.max(0, sum(b.total.revenue) - sum(b.total.cogs) - sum(b.total.opex) - sum(b.ebitdaNoncash)), color: 'var(--good)' }
+            ]} /></section>}
         <section className="card"><h2>{T('Spending by department', 'الإنفاق حسب الإدارة')}</h2><p className="sub">{T('Costs and capex. Hover a slice for its share.', 'التكاليف والرأسمالية. مرّر على الجزء لرؤية نسبته.')}</p>
           <Donut center={(() => { const t = Object.values(b.byDept).reduce((a, k) => a + sum(k.cogs) + sum(k.opex) + sum(k.noncash) + sum(k.financing) + sum(k.capex), 0); return t >= 1e6 ? (t / 1e6).toFixed(1) + 'M' : Math.round(t / 1e3) + 'k'; })()} sub={T('SAR, whole round', 'ريال، الدورة كاملة')}
             parts={meta.pack.allDepartments.map((d, i) => ({ id: d.id, label: txt(d.name), color: deptColor(i), value: (() => { const k = b.byDept[d.id]; return k ? sum(k.cogs) + sum(k.opex) + sum(k.noncash) + sum(k.financing) + sum(k.capex) : 0; })() })).filter((p) => p.value > 0)} /></section>

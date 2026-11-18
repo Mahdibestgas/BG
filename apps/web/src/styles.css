@@ -816,3 +816,27 @@ a.card { display: block; color: inherit; text-decoration: none; } a.card:hover {
 .auth-brand > div { display: grid; gap: 6px; }
 .auth-wordmark { width: min(300px, 60vw); height: auto; display: block; }
 .auth-brand > div span { font-size: 13px; font-weight: 500; opacity: .8; }
+
+/* page change: a brand line sweeps across the top while the next page fades in */
+main { position: relative; }
+.route-bar { position: fixed; top: 0; inset-inline: 0; height: 3px; z-index: 60; pointer-events: none; background: linear-gradient(90deg, transparent, var(--brand) 30%, var(--good) 70%, transparent); transform-origin: left; animation: route-bar 620ms var(--m-ease) both; }
+[dir="rtl"] .route-bar { transform-origin: right; }
+@keyframes route-bar { 0% { transform: scaleX(0); opacity: 1; } 70% { transform: scaleX(1); opacity: 1; } 100% { transform: scaleX(1); opacity: 0; } }
+.route-in { animation: route-fade var(--m-std) var(--m-ease) both; }
+@keyframes route-fade { from { opacity: 0; } to { opacity: 1; } }
+.round-kpis { margin-bottom: 14px; }
+@media (prefers-reduced-motion: reduce) { .route-bar, .route-in { animation: none !important; } .route-bar { display: none; } }
+
+/* money flow: revenue on the left, where it goes on the right */
+.mf svg { margin-top: 26px; }
+.mf-head { position: absolute; top: 0; inset-inline-start: 0; font-size: 13px; color: var(--ink2); }
+.mf-head b { color: var(--ink); font-weight: 600; } .mf-head span { font-variant-numeric: tabular-nums; margin-inline-start: 6px; }
+.mf-src { fill: var(--rec); }
+.mf-ribbon { opacity: .38; transition: opacity var(--m-fast) ease-out; }
+.mf-band:hover .mf-ribbon { opacity: .62; }
+.mf-band.dim { opacity: .45; }
+.mf-band { transition: opacity var(--m-fast) ease-out; animation: mf-in .9s var(--m-ease) both; animation-delay: var(--d); }
+@keyframes mf-in { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+[dir="rtl"] .mf svg { transform: scaleX(-1); } [dir="rtl"] .mf svg text { transform: scaleX(-1); transform-box: fill-box; transform-origin: center; }
+.mf-lab { fill: var(--ink); font-size: 12.5px; } .mf-val { fill: var(--ink2); font-size: 12px; font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .mf-band { animation: none !important; } }

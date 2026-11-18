@@ -68,6 +68,7 @@ export function Shell({ children }: { children: ReactNode }) {
       </aside>
       <main id="main">
         {s.plan?.demo && <div className="demo" role="note"><b>{t('demo')}</b> {t('demoText')}{(s.me.role === 'owner' || s.me.role === 'finance') && <> <NavLink className="link" to="/plans/import">{L('Load your plan file', 'حمّل ملف خطتك')}</NavLink></>}</div>}
+        <div className="route-bar" key={'bar' + where} aria-hidden="true" />
         <div className="route-in" key={where}>{children}</div>
       </main>
     </div>

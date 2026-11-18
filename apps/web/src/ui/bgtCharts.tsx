@@ -168,3 +168,47 @@ export function VarianceBars({ rows, labels }: { rows: Array<{ id: string; label
     </div>
   );
 }
+
+/** Where the revenue goes: one band per destination, width = SAR, drawn in from left to right. */
+export function MoneyFlow({ source, flows, labels }: { source: { label: string; value: number }; flows: Array<{ id: string; label: string; value: number; color: string }>; labels: { share: string } }) {
+  const [ref, W] = useWidth<HTMLDivElement>();
+  const [hover, setHover] = useState<string | null>(null);
+  const items = flows.filter((f) => f.value > 0);
+  const total = Math.max(source.value, sum(items.map((f) => f.value)), 1);
+  // the bands keep their true width; every destination gets at least one line of label space, so small ones never collide
+  const gap = 6, nodeW = 14, labelW = Math.min(230, W * 0.36), line = 22, scale = 240 / total;
+  const hs = items.map((f) => Math.max(1.5, f.value * scale));
+  const rightH = hs.reduce((t, h) => t + Math.max(h, line), 0) + gap * Math.max(0, items.length - 1);
+  const leftH = hs.reduce((t, h) => t + h, 0);
+  const H = Math.max(rightH, leftH) + 4;
+  const x0 = 0, x1 = W - labelW - nodeW;
+  let yl = (H - leftH) / 2, yr = (H - rightH) / 2;
+  const bands = items.map((f, i) => {
+    const h = hs[i], slot = Math.max(h, line);
+    const b = { ...f, h, ly: yl, ry: yr + (slot - h) / 2 };
+    yl += h; yr += slot + gap;
+    return b;
+  });
+  const path = (b: typeof bands[number]) => {
+    const a = x0 + nodeW, c = x1, m = (a + c) / 2;
+    return `M${a},${b.ly} C${m},${b.ly} ${m},${b.ry} ${c},${b.ry} L${c},${b.ry + b.h} C${m},${b.ry + b.h} ${m},${b.ly + b.h} ${a},${b.ly + b.h} Z`;
+  };
+  const shown = hover ? bands.find((b) => b.id === hover) : null;
+  return (
+    <div className="bc mf" ref={ref}>
+      <svg width={W} height={H} role="img" aria-label={source.label}>
+        <rect x={x0} y={bands[0]?.ly ?? 0} width={nodeW} height={Math.max(1, sum(bands.map((b) => b.h)))} rx={4} className="mf-src" />
+        {bands.map((b, i) => (
+          <g key={b.id} onMouseEnter={() => setHover(b.id)} onMouseLeave={() => setHover(null)} className={'mf-band' + (hover && hover !== b.id ? ' dim' : '')} style={{ ['--d' as any]: 150 + i * 70 + 'ms' }}>
+            <path d={path(b)} fill={b.color} className="mf-ribbon" />
+            <rect x={x1} y={b.ry} width={nodeW} height={b.h} rx={3} fill={b.color} />
+            <text x={x1 + nodeW + 8} y={b.ry + b.h / 2 + 4} className="mf-lab">{b.label}</text>
+            <text x={W} y={b.ry + b.h / 2 + 4} className="mf-val" textAnchor="end">{short(b.value)}</text>
+          </g>
+        ))}
+      </svg>
+      <div className="mf-head"><b>{source.label}</b> <span>{acc(source.value)}</span></div>
+      {shown && <Tip x={(x0 + x1) / 2} y={shown.ly + shown.h / 2 - 30} w={W}><b>{shown.label}</b><span>{acc(shown.value)}</span><span>{source.value ? ((shown.value / source.value) * 100).toFixed(1) + '% ' + labels.share : ''}</span></Tip>}
+    </div>
+  );
+}
