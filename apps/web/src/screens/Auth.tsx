@@ -8,7 +8,10 @@ function Art() {
   const { t } = useI18n();
   return (
     <section className="auth-art">
-      <div className="auth-brand"><img src="/bestgas-logo.png" alt="" className="auth-logo" />{t('product')}</div>
+      <div className="auth-brand">
+        <img src="/bestgas-logo.png" alt="" className="auth-emblem" />
+        <div><img src="/bestgas-wordmark-light.png" alt="Best Gas Carrier Co. · شركة الناقل الأفضل للغاز" className="auth-wordmark" /><span>{t('product')}</span></div>
+      </div>
       <div className="auth-round" aria-hidden="true">
         {[0.35, 0.6, 1, 0.85, 1, 0.5, 0.75].map((f, i) => (
           <svg key={i} viewBox="0 0 48 112" style={{ ['--i' as any]: i }}>

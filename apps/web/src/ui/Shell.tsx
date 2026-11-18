@@ -32,10 +32,21 @@ export function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="app">
       <aside className="side">
-        <div className="co">
-          <div className="mark">{s.hasLogo ? <img src={'/api/tenant/logo?v=' + encodeURIComponent(s.logoVersion)} alt="" /> : <img src="/bestgas-logo.png" alt="" />}</div>
-          <div><b>{name}</b><span>{t('product')}</span></div>
-        </div>
+        {s.hasLogo ? (
+          <div className="co">
+            <div className="mark"><img src={'/api/tenant/logo?v=' + encodeURIComponent(s.logoVersion)} alt="" /></div>
+            <div><b>{name}</b><span>{t('product')}</span></div>
+          </div>
+        ) : (
+          // Best Gas's own identity: the round emblem and the bilingual wordmark (light version, made for dark grounds)
+          <div className="co co-bg">
+            <img className="co-emblem" src="/bestgas-logo.png" alt="" />
+            <div className="co-words">
+              <img className="co-wordmark" src="/bestgas-wordmark-light.png" alt={name} />
+              <span>{t('product')}{name.toLowerCase() !== 'best gas' ? ' · ' + name : ''}</span>
+            </div>
+          </div>
+        )}
         <nav className="nav" aria-label={t('product')}>
           {groups.map((g, i) => <div className="nav-g" key={i}>{g.h && <div className="nav-h">{g.h}</div>}{g.links.map(([to, k, label]) => <NavLink key={to} to={to} end={to === '/' || to === '/budget'}><Icon k={k} />{label}</NavLink>)}</div>)}
         </nav>
