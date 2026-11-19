@@ -905,3 +905,8 @@ main { position: relative; }
 /* overview: month names under the net bars stay on one line */
 .ov-net .b small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ov .head .pills { align-items: center; }
+
+/* guidance from history, beside the department lines */
+.guide { border-inline-start: 4px solid var(--brand); }
+.guide-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+.guide-tbl { margin-top: 10px; width: 100%; }

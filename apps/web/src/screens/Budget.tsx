@@ -16,7 +16,9 @@ interface Meta {
   you: { role: string; department: string | null };
   pack: { id: string; name: Txt; departments: Array<{ id: string; name: Txt; covers: Txt }>; allDepartments: Array<{ id: string; name: Txt }>; items: Item[] };
   regions: Array<{ id: string; name: Txt }>; params: HrParams; settingsVersion: number; cycles: Cycle[];
+  guidance: Guidance | null;
 }
+interface Guidance { source: string; period: string; note: string; updatedAt: string; items: Record<string, number> }
 type Status = 'not_started' | 'draft' | 'submitted' | 'approved' | 'returned';
 const STATUS: Record<Status, Txt> = {
   not_started: { en: 'Not started', ar: 'لم تبدأ' }, draft: { en: 'Draft', ar: 'مسودة' }, submitted: { en: 'Waiting for approval', ar: 'بانتظار الاعتماد' },
@@ -120,6 +122,7 @@ export function BudgetHome() {
 
       {owner && meta.cycles.length === 0 && <QuickStart meta={meta} onDone={(id) => { reload(); setCycleId(id); }} />}
       {!owner && meta.cycles.length === 0 && <p className="empty">{T('No budget round is open yet. The owner opens one.', 'لا توجد دورة ميزانية مفتوحة بعد. يفتحها المالك.')}</p>}
+      {(owner || s.me.role === 'finance') && <GuidanceLoader meta={meta} onDone={(t) => { reload(); setMsg({ ok: true, t }); }} />}
       {owner && <NewCycle onDone={(id) => { reload(); setCycleId(id); }} />}
       {owner && <Settings meta={meta} onDone={() => { reload(); setMsg({ ok: true, t: T('Settings saved.', 'تم حفظ الإعدادات.') }); }} />}
       {owner && <p className="sub" style={{ marginTop: 18 }}>{T('Department heads join by invitation: ', 'ينضم مديرو الإدارات بدعوة: ')}<Link className="link" to="/people">{T('People and invitations', 'الفريق والدعوات')}</Link></p>}
@@ -359,6 +362,8 @@ export function DeptBudget() {
       {tab === 'plan' && <PlanEditor plan={plan} months={d.cycle.monthKeys} editable={editable} onChange={(x) => { setPlan(x); touch(); }} />}
       {tab === 'budget' && dept === 'hr' && <Positions meta={meta} n={n} months={d.cycle.monthKeys} positions={positions} editable={editable} onChange={(p) => { setPositions(p); touch(); }} generated={generated} />}
 
+      {tab === 'budget' && <GuidanceCard meta={meta} items={items} lines={all} n={n} editable={editable}
+        onUse={(ids) => { setLines([...lines, ...ids.map((id) => ({ id: uid(), item: id, region: meta.regions[0]?.id || '', desc: T('From guidance: ', 'من الإرشاد: ') + (meta.guidance?.source || ''), amounts: new Array(n).fill(meta.guidance!.items[id]) }))]); touch(); }} />}
       {tab === 'budget' && <section className="card" style={{ marginTop: 20 }}>
         <h2>{dept === 'hr' ? T('Other HR lines', 'بنود الموارد البشرية الأخرى') : T('Budget lines', 'بنود الميزانية')}</h2>
         <p className="sub">{T('One line per item and city. Use quantity × price where the item has a unit (cylinders, litres, vehicles).', 'سطر لكل بند ومدينة. استخدم الكمية × السعر للبنود التي لها وحدة (أسطوانات، لترات، مركبات).')}</p>
@@ -421,6 +426,70 @@ export function DeptBudget() {
       </section>
       {tab === 'budget' && all.length > 0 && <Summary meta={meta} lines={all} months={d.cycle.monthKeys} regionName={regionName} />}
     </div>
+  );
+}
+
+/**
+ * Guidance from history (bank cash flow, later the P&L): a monthly average per item, shown next to what the
+ * department enters. It is a starting point only; the department's own approved figures are the budget.
+ */
+function GuidanceCard({ meta, items, lines, n, editable, onUse }: { meta: Meta; items: Item[]; lines: Line[]; n: number; editable: boolean; onUse: (ids: string[]) => void }) {
+  const { lang, txt } = useI18n();
+  const T = (en: string, ar: string) => (lang === 'ar' ? ar : en);
+  const g = meta.guidance;
+  const rows = g ? items.filter((i) => g.items[i.id] > 0) : [];
+  if (!g || !rows.length) return null;
+  const entered = (id: string) => { const ls = lines.filter((l) => l.item === id); return ls.length ? sum(ls.map((l) => sum(l.amounts))) / Math.max(1, n) : null; };
+  const unused = rows.filter((i) => entered(i.id) === null).map((i) => i.id);
+  return (
+    <section className="card guide" style={{ marginTop: 20 }}>
+      <div className="guide-head">
+        <div><h2>{T('Guidance from history', 'إرشاد من البيانات التاريخية')}</h2>
+          <p className="sub">{g.source}{g.period ? ' · ' + g.period : ''} · {T('a month, excluding VAT. A starting point only: your figures, once approved, are the budget.', 'شهريًا وبدون ضريبة. نقطة بداية فقط: أرقامك بعد اعتمادها هي الميزانية.')}</p></div>
+        {editable && unused.length > 0 && <button type="button" className="btn ghost" onClick={() => onUse(unused)}>{T(`Start from guidance (${unused.length})`, `ابدأ من الإرشاد (${unused.length})`)}</button>}
+      </div>
+      <table className="tbl guide-tbl"><thead><tr><th>{T('Item', 'البند')}</th><th className="n">{T('Guide a month', 'الإرشاد شهريًا')}</th><th className="n">{T('Your average a month', 'متوسطك شهريًا')}</th><th className="n">{T('Difference', 'الفرق')}</th><th /></tr></thead>
+        <tbody>{rows.map((i) => {
+          const gv = g.items[i.id], ev = entered(i.id), d = ev === null ? null : ev - gv;
+          return <tr key={i.id}><td>{txt(i.name)}</td><td className="n num">{acc(gv)}</td><td className="n num">{ev === null ? <span className="sub">{T('not entered', 'لم يُدخل')}</span> : acc(ev)}</td>
+            <td className={'n num ' + (d === null ? '' : Math.abs(d) <= gv * 0.1 ? '' : 'warn-t')}>{d === null ? '–' : (d >= 0 ? '+' : '') + acc(d) + (gv ? ` (${d >= 0 ? '+' : ''}${Math.round((d / gv) * 100)}%)` : '')}</td>
+            <td>{editable && ev === null && <button type="button" className="link" onClick={() => onUse([i.id])}>{T('Use', 'استخدم')}</button>}</td></tr>;
+        })}</tbody></table>
+      {g.note && <p className="sub" style={{ marginTop: 8 }}>{g.note}</p>}
+    </section>
+  );
+}
+
+/** Owner and finance load the guidance file (a monthly average per catalogue item). */
+function GuidanceLoader({ meta, onDone }: { meta: Meta; onDone: (t: string) => void }) {
+  const { lang, err } = useI18n();
+  const T = (en: string, ar: string) => (lang === 'ar' ? ar : en);
+  const [busy, setBusy] = useState(false), [msg, setMsg] = useState('');
+  const g = meta.guidance;
+  async function send(body: object, done: string) {
+    setBusy(true); setMsg('');
+    try { await api('PUT', '/api/budget/guidance', body); onDone(done); }
+    catch (e) { setMsg(err(e instanceof ApiError ? e.code : 'network')); }
+    finally { setBusy(false); }
+  }
+  async function pick(file: File | undefined) {
+    if (!file) return;
+    let body: unknown;
+    try { body = JSON.parse(await file.text()); } catch { setMsg(T('That file is not a guidance file (JSON).', 'هذا الملف ليس ملف إرشاد (JSON).')); return; }
+    await send(body as object, T('Guidance loaded. Department heads now see it next to their lines.', 'تم تحميل الإرشاد. يراه مديرو الإدارات بجانب بنودهم.'));
+  }
+  return (
+    <section className="card" style={{ marginTop: 20 }}>
+      <h2>{T('Guidance from history', 'الإرشاد من البيانات التاريخية')}</h2>
+      <p className="sub">{g ? T(`Loaded: ${g.source}${g.period ? ', ' + g.period : ''}, ${Object.keys(g.items).length} items. `, `محمّل: ${g.source}${g.period ? '، ' + g.period : ''}، ${Object.keys(g.items).length} بندًا. `) : T('None loaded. ', 'لا يوجد إرشاد. ')}
+        {T('Monthly averages from the bank cash flow or the P&L, shown to each department as a starting point. Approved department figures always win.', 'متوسطات شهرية من التدفق النقدي البنكي أو الأرباح والخسائر تُعرض لكل إدارة كنقطة بداية. الأرقام المعتمدة من الإدارات هي الأساس دائمًا.')}</p>
+      <div className="actions">
+        <label className="btn ghost" style={{ cursor: busy ? 'wait' : 'pointer' }}>{g ? T('Replace guidance file', 'استبدال ملف الإرشاد') : T('Load guidance file', 'تحميل ملف الإرشاد')}
+          <input type="file" accept=".json,application/json" hidden disabled={busy} onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ''; }} /></label>
+        {g && <button type="button" className="link danger" disabled={busy} onClick={() => send({ source: g.source, items: {} }, T('Guidance removed.', 'تمت إزالة الإرشاد.'))}>{T('Remove', 'إزالة')}</button>}
+        {msg && <span className="msg err">{msg}</span>}
+      </div>
+    </section>
   );
 }
 

@@ -185,6 +185,7 @@ model BudgetSettings {
   pack      String   @default("ksa-lpg")
   regions   Json
   params    Json
+  guidance  Json?
   version   Int      @default(1)
   updatedAt DateTime @updatedAt @map("updated_at")
 

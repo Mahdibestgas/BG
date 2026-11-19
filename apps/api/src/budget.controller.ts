@@ -3,6 +3,7 @@ import {
   BudgetError, budgetToCashPlan, cleanActuals, cleanParams, cleanRegions, cleanSubmission, consolidate, DEFAULT_PARAMS, deptOf, itemOf, monthKeys, packOf, readiness, sum, varianceRows,
   type HrParams, type Pack, type SubmissionBody
 } from '@cf13/budget';
+import { Prisma } from '@prisma/client';
 import { forecast, type CoreModel } from '@cf13/engine';
 import { Db } from './db';
 import { AppError, Context, isUuid, Roles, str, type Ctx } from './http';
@@ -10,6 +11,24 @@ import { AppError, Context, isUuid, Roles, str, type Ctx } from './http';
 type Tx = Parameters<Parameters<Db['inTenant']>[1]>[0];
 const asApp = (e: unknown): never => { if (e instanceof BudgetError) throw new AppError(e.code); throw e; };
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+export interface Guidance { source: string; period: string; note: string; updatedAt: string; items: Record<string, number> }
+/** Check a guidance upload: known items only, plain monthly amounts, short labels. */
+function cleanGuidance(pack: Pack, b: any): Omit<Guidance, 'updatedAt'> {
+  const text = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+  const source = text(b?.source, 120), period = text(b?.period, 80), note = text(b?.note, 600);
+  if (!source) throw new AppError('required');
+  const raw = b?.items && typeof b.items === 'object' && !Array.isArray(b.items) ? b.items : null;
+  if (!raw) throw new AppError('required');
+  const items: Record<string, number> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (!itemOf(pack, k)) throw new AppError('unknown_item');
+    const n = Number(v);
+    if (!Number.isFinite(n) || n < 0 || n > 1e10) throw new AppError('invalid_number');
+    items[k] = Math.round(n * 100) / 100;
+  }
+  return { source, period, note, items };
+}
 
 /** Totals of one submission by kind, for status boards and the audit trail. */
 function totals(pack: Pack, body: SubmissionBody) {
@@ -38,7 +57,8 @@ export class BudgetController {
     return {
       pack, version: s?.version ?? 0,
       regions: (s?.regions as Array<{ id: string; name: { en: string; ar: string } }> | undefined) ?? pack.regions,
-      params: s ? cleanParams(s.params) : DEFAULT_PARAMS
+      params: s ? cleanParams(s.params) : DEFAULT_PARAMS,
+      guidance: (s?.guidance as Guidance | null | undefined) ?? null
     };
   }
   private dept(ctx: Ctx, pack: Pack, dept: string) {
@@ -75,8 +95,25 @@ export class BudgetController {
         ok: true, you: { role: ctx.role, department: ctx.department ?? null },
         pack: { id: s.pack.id, name: s.pack.name, departments, allDepartments: s.pack.departments.map((d) => ({ id: d.id, name: d.name })), items },
         regions: s.regions, params: s.params, settingsVersion: s.version,
+        // history is guidance only: each department sees its own items; approved department figures replace it
+        guidance: s.guidance ? { ...s.guidance, items: Object.fromEntries(Object.entries(s.guidance.items).filter(([k]) => items.some((i) => i.id === k))) } : null,
         cycles: cycles.map((c) => ({ id: c.id, name: c.name, startMonth: c.startMonth, months: c.months, monthKeys: monthKeys(c.startMonth, c.months), status: c.status, deadline: c.deadline, version: c.version }))
       };
+    });
+  }
+
+  /** Load or replace the guidance figures (monthly averages from history). An empty items object clears it. */
+  @Put('guidance') @Roles('owner', 'finance')
+  async saveGuidance(@Context() ctx: Ctx, @Body() b: any) {
+    return this.db.inTenant(ctx.tenantId, async (tx) => {
+      const s = await this.settings(tx);
+      const g = cleanGuidance(s.pack, b);
+      const value = Object.keys(g.items).length ? { ...g, updatedAt: new Date().toISOString() } : null;
+      const cur = await tx.budgetSettings.findFirst();
+      if (cur) await tx.budgetSettings.update({ where: { tenantId: ctx.tenantId }, data: { guidance: (value ?? Prisma.DbNull) as any } });
+      else await tx.budgetSettings.create({ data: { tenantId: ctx.tenantId, regions: s.regions as any, params: s.params as any, guidance: (value ?? Prisma.DbNull) as any, version: 1 } });
+      await this.audit(tx, ctx, 'budget_guidance_saved', ctx.tenantId, { source: g.source, period: g.period, items: Object.keys(g.items).length });
+      return { ok: true, items: Object.keys(g.items).length };
     });
   }
 

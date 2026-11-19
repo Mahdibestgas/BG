@@ -271,3 +271,22 @@ test('my account: change email needs the password, a taken email is refused, ema
   finally { if (saved) process.env.RESEND_API_KEY = saved; }
   assert.equal((await D.call('POST', '/api/auth/email-otp', { password: PW, enabled: false })).status, 201, 'turning it off always works');
 });
+
+test('guidance: owner and finance load it, each head sees only their own items, settings saves keep it, it can be removed', async () => {
+  const body = { source: 'Bank cash flow', period: 'Sep to Nov 2026', items: { hr_salaries: 585775.5, op_rent: 254987, pr_gas: 17945596 } };
+  assert.equal((await HR.call('PUT', '/api/budget/guidance', body)).status, 403, 'a head cannot load guidance');
+  assert.equal((await O.call('PUT', '/api/budget/guidance', { ...body, items: { no_such_item: 1 } })).status, 400, 'unknown items are refused');
+  assert.equal((await O.call('PUT', '/api/budget/guidance', { ...body, items: { op_rent: -5 } })).status, 400, 'negative amounts are refused');
+  let r = await O.call('PUT', '/api/budget/guidance', body);
+  assert.equal(r.status, 200, JSON.stringify(r.body)); assert.equal(r.body.items, 3);
+  assert.deepEqual((await HR.call('GET', '/api/budget/meta')).body.guidance.items, { hr_salaries: 585775.5 }, 'HR sees only HR items');
+  assert.deepEqual((await OPS.call('GET', '/api/budget/meta')).body.guidance.items, { op_rent: 254987 });
+  const meta = (await O.call('GET', '/api/budget/meta')).body;
+  assert.equal(Object.keys(meta.guidance.items).length, 3); assert.equal(meta.guidance.source, 'Bank cash flow');
+  r = await O.call('PUT', '/api/budget/settings', { version: meta.settingsVersion, regions: meta.regions, params: meta.params });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(Object.keys((await O.call('GET', '/api/budget/meta')).body.guidance.items).length, 3, 'a settings save keeps the guidance');
+  assert.equal((await X.call('GET', '/api/budget/meta')).body.guidance, null, 'another company sees none');
+  r = await O.call('PUT', '/api/budget/guidance', { source: 'x', items: {} });
+  assert.equal(r.status, 200); assert.equal((await O.call('GET', '/api/budget/meta')).body.guidance, null, 'removed');
+});
