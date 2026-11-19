@@ -72,6 +72,9 @@ export function Overview() {
   const { f, error } = useForecast(s.plan?.id, s.plan?.version);
   const [x, setX] = useState<PlanExtras>({});
   const [hov, setHov] = useState<string | null>(null);
+  // weekly or monthly view of the charts; remembered on this browser
+  const [per, setPer] = useState<'w' | 'm'>(() => { try { return localStorage.getItem('cf13.ovPeriod') === 'm' ? 'm' : 'w'; } catch { return 'w'; } });
+  const pickPer = (v: 'w' | 'm') => { setPer(v); try { localStorage.setItem('cf13.ovPeriod', v); } catch { /* private window */ } };
 
   useEffect(() => {
     if (!s.plan?.id) return;
@@ -92,12 +95,22 @@ export function Overview() {
     const months = new Map<string, { label: string; w: number[] }>();
     f.weeks.forEach((w, i) => { const k = w.start.slice(0, 7); if (!months.has(k)) months.set(k, { label: date(w.start, lang, withYear ? { month: 'short', year: '2-digit' } : { month: 'long' }), w: [] }); /* a plan longer than a year shows each month with its year */ months.get(k)!.w.push(i); });
     const parts = SLICES.map((sl) => ({ k: sl.k, v: sum(grp(sl.ids)), col: sl.col, label: lang === 'ar' ? sl.ar : sl.en, link: sl.link })).filter((p) => p.v > 0.5);
-    return { N, L, grp, rec, pay, net, close, R, P, mo, gas, months, parts };
+    // the same forecast rolled up to calendar months, for the monthly view of the charts
+    const mk = [...months.values()], lastOf = (g: { w: number[] }) => g.w[g.w.length - 1];
+    const mClose = mk.map((g) => close[lastOf(g)]);
+    const monthly: Forecast = {
+      ...f,
+      weeks: mk.map((g) => ({ ...f.weeks[g.w[0]], label: g.label, end: f.weeks[lastOf(g)].end })),
+      l1: { ...f.l1, receipts: mk.map((g) => sum(g.w.map((i) => rec[i]))), payments: mk.map((g) => sum(g.w.map((i) => pay[i]))), net: mk.map((g) => sum(g.w.map((i) => net[i]))), closing: mClose, opening: mk.map((g) => f.l1.opening[g.w[0]]) },
+      headline: { ...f.headline, lowestWeek: mClose.indexOf(Math.min(...mClose)) }
+    };
+    const monthOfWeek = (wi: number) => mk.findIndex((g) => g.w.includes(wi));
+    return { N, L, grp, rec, pay, net, close, R, P, mo, gas, months, parts, monthly, monthOfWeek };
   }, [f, lang]);
 
   if (error) return <p className="msg err">{error}</p>;
   if (!f || !D) return <Loading />;
-  const { N, L, rec, pay, net, close, R, P, mo, gas, months, parts } = D;
+  const { N, L, rec, pay, net, close, R, P, mo, gas, months, parts, monthly, monthOfWeek } = D;
   const h = f.headline, now = currentWeek(f.weeks), cc = x.crossCheck, sea = x.seasonality;
   const bad = f.checks.filter((c) => !c.ok).length;
   const open = f.l1.opening[0], end = close[N - 1], lowW = h.lowestWeek;
@@ -135,7 +148,8 @@ export function Overview() {
     { l: T('Cash margin', 'الهامش النقدي'), v: pct((opM / R) * 100), s: T('after gas and running costs', 'بعد الغاز والمصاريف'), tone: 'rec', go: () => go('opex') }
   ];
 
-  const wnMax = Math.max(...net.map((v) => Math.abs(v)), 1);
+  const vf = per === 'm' ? monthly : f, vNow = per === 'm' ? (now >= 0 ? monthOfWeek(now) : -1) : now, vNet = vf.l1.net;
+  const wnMax = Math.max(...vNet.map((v) => Math.abs(v)), 1);
   const wfPath = (() => {
     if (!wf) return null;
     const W = 520, H = 120, P = 10, lo = 0.9, hi = Math.max(...wf, 1.05) + 0.03;
@@ -160,6 +174,10 @@ export function Overview() {
           <p className="sub">{T(`${date(f.weeks[0].start, lang, { day: 'numeric', month: 'long', year: 'numeric' })} to ${date(f.weeks[N - 1].end, lang, { day: 'numeric', month: 'long', year: 'numeric' })}`, `من ${date(f.weeks[0].start, lang, { day: 'numeric', month: 'long', year: 'numeric' })} إلى ${date(f.weeks[N - 1].end, lang, { day: 'numeric', month: 'long', year: 'numeric' })}`)}{now >= 0 ? ' · ' + T(`today is week ${now + 1}`, `اليوم هو الأسبوع ${now + 1}`) : ''} · {T('every card opens its detail', 'كل بطاقة تفتح تفاصيلها')}</p></div>
         <div className="pills">
           <span className={'pill ' + (bad ? 'bad' : 'ok')}>{bad ? '⚠ ' + bad + ' ' + T('checks fail', 'فحوصات فاشلة') : '✓ ' + T(`All ${f.checks.length} checks pass`, `نجحت كل الفحوصات (${f.checks.length})`)}</span>
+          <div className="seg" role="group" aria-label={T('Show by', 'العرض حسب')}>
+            <button type="button" aria-pressed={per === 'w'} onClick={() => pickPer('w')}>{T('Weekly', 'أسبوعي')}</button>
+            <button type="button" aria-pressed={per === 'm'} onClick={() => pickPer('m')}>{T('Monthly', 'شهري')}</button>
+          </div>
           {s.plans.length > 1
             ? <select className="pill" aria-label="Plan" value={s.plan?.id} onChange={(e) => s.pickPlan(e.target.value)} style={{ border: 0, cursor: 'pointer' }}>{s.plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
             : <span className="pill">{s.plan?.name}</span>}
@@ -176,16 +194,16 @@ export function Overview() {
 
       <div className="grid ov-main" style={{ marginTop: 20 }}>
         <section className="card an-in">
-          <h2>{T('Closing cash, week by week', 'الرصيد الختامي أسبوعًا بأسبوع')}</h2>
-          <p className="sub">{T('Each point is the bank balance at the end of the week, in SAR.', 'كل نقطة هي الرصيد البنكي في نهاية الأسبوع بالريال.')}</p>
-          <div style={{ marginTop: 10 }}><Runway f={f} now={now} /></div>
-          <div className="ov-net" aria-label={T('Net cash by week', 'صافي النقد حسب الأسبوع')}>
-            {net.map((v, i) => (
+          <h2>{per === 'm' ? T('Closing cash, month by month', 'الرصيد الختامي شهرًا بشهر') : T('Closing cash, week by week', 'الرصيد الختامي أسبوعًا بأسبوع')}</h2>
+          <p className="sub">{per === 'm' ? T('Each point is the bank balance at the end of the month, in SAR.', 'كل نقطة هي الرصيد البنكي في نهاية الشهر بالريال.') : T('Each point is the bank balance at the end of the week, in SAR.', 'كل نقطة هي الرصيد البنكي في نهاية الأسبوع بالريال.')}</p>
+          <div style={{ marginTop: 10 }} key={per} className="route-in"><Runway f={vf} now={vNow} /></div>
+          <div className="ov-net" key={'n' + per} aria-label={per === 'm' ? T('Net cash by month', 'صافي النقد حسب الشهر') : T('Net cash by week', 'صافي النقد حسب الأسبوع')}>
+            {vNet.map((v, i) => (
               <button type="button" key={i} className={'b ' + (v >= 0 ? 'up' : 'down') + (hov === 'w' + i ? ' on' : '')} style={{ ['--h' as string]: Math.max(6, (Math.abs(v) / wnMax) * 100) + '%', animationDelay: i * 30 + 'ms' }}
-                onMouseEnter={() => setHov('w' + i)} onMouseLeave={() => setHov(null)} onClick={() => go()} title={`${f.weeks[i].label} · ${date(f.weeks[i].start, lang)} · ${v >= 0 ? '+' : '-'}${m(Math.abs(v))}`}><i /><small>{i + 1}</small></button>
+                onMouseEnter={() => setHov('w' + i)} onMouseLeave={() => setHov(null)} onClick={() => go()} title={`${vf.weeks[i].label} · ${date(vf.weeks[i].start, lang)} · ${v >= 0 ? '+' : '-'}${m(Math.abs(v))}`}><i /><small>{per === 'm' ? vf.weeks[i].label : i + 1}</small></button>
             ))}
           </div>
-          <p className="sub" style={{ marginTop: 4 }}>{T('Net cash in each week: green adds, red takes away.', 'صافي النقد في كل أسبوع: الأخضر يضيف والأحمر يخصم.')}</p>
+          <p className="sub" style={{ marginTop: 4 }}>{per === 'm' ? T('Net cash in each month: green adds, red takes away.', 'صافي النقد في كل شهر: الأخضر يضيف والأحمر يخصم.') : T('Net cash in each week: green adds, red takes away.', 'صافي النقد في كل أسبوع: الأخضر يضيف والأحمر يخصم.')}</p>
         </section>
 
         <section className="card an-in ov-dec">
@@ -214,7 +232,8 @@ export function Overview() {
         <section className="card an-in">
           <h2>{T('Receipts and payments', 'المقبوضات والمدفوعات')}</h2>
           <div className="legend"><span><i style={{ background: 'var(--rec)' }} />{T('Receipts', 'المقبوضات')}</span><span><i style={{ background: 'var(--pay)' }} />{T('Payments', 'المدفوعات')}</span></div>
-          <div style={{ marginTop: 8 }}><Bars f={f} /></div>
+          <p className="sub">{per === 'm' ? T('Totals for each month.', 'مجموع كل شهر.') : T('Totals for each week.', 'مجموع كل أسبوع.')}</p>
+          <div style={{ marginTop: 8 }} key={per}><Bars f={vf} /></div>
           <div className="ov-mini">
             <div><span>{T('Total receipts', 'إجمالي المقبوضات')}</span><b className="num">{m(R)}</b></div>
             <div><span>{T('Total payments', 'إجمالي المدفوعات')}</span><b className="num">{m(P)}</b></div>

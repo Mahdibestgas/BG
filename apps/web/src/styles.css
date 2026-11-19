@@ -901,3 +901,7 @@ main { position: relative; }
 .otp.shake input { border-color: var(--crit); }
 @keyframes otp-shake { 10%, 90% { transform: translateX(-2px); } 20%, 80% { transform: translateX(4px); } 30%, 50%, 70% { transform: translateX(-7px); } 40%, 60% { transform: translateX(7px); } }
 @media (prefers-reduced-motion: reduce) { .vh-mail .letter, .vh-mail .lines, .vh-shield, .vh-shield .ok, .otp.shake { animation: none !important; } .vh-shield .ok { stroke-dashoffset: 0; } }
+
+/* overview: month names under the net bars stay on one line */
+.ov-net .b small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov .head .pills { align-items: center; }
