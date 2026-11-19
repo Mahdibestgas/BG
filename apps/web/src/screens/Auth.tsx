@@ -5,25 +5,39 @@ import { useI18n } from '../i18n';
 import { firebaseIdToken } from '../firebase';
 
 function Art() {
-  const { t, lang } = useI18n();
+  const { lang } = useI18n();
+  const T = (en: string, ar: string) => (lang === 'ar' ? ar : en);
+  const steps = [T('Study', 'الدراسة'), T('Plan', 'الخطة'), T('Budget', 'الميزانية'), T('Forecast', 'التوقعات'), T('Variance', 'الانحراف')];
+  // an illustration, not data: a budget line and an actual line drawing themselves across 13 months
+  const W = 560, H = 220, pts = [0.42, 0.47, 0.44, 0.55, 0.6, 0.58, 0.66, 0.7, 0.64, 0.74, 0.8, 0.78, 0.88];
+  const bud = [0.45, 0.48, 0.5, 0.54, 0.57, 0.6, 0.63, 0.66, 0.68, 0.72, 0.75, 0.79, 0.83];
+  const xy = (a: number[]) => a.map((v, i) => `${i ? 'L' : 'M'}${(20 + (i * (W - 40)) / 12).toFixed(1)} ${(H - 20 - v * (H - 50)).toFixed(1)}`).join(' ');
+  const last = { x: W - 20, y: H - 20 - pts[12] * (H - 50) };
   return (
-    <section className="auth-art">
+    <section className="auth-art v3">
       <div className="auth-brand">
         <img src="/bestgas-logo.png" alt="" className="auth-emblem" />
-        <div><img src="/bestgas-wordmark-light.png" alt="Best Gas Carrier Co. · شركة الناقل الأفضل للغاز" className="auth-wordmark" /><span>{t('product')}</span></div>
+        <img src="/bestgas-wordmark-light.png" alt="Best Gas Carrier Co. · شركة الناقل الأفضل للغاز" className="auth-wordmark" />
       </div>
-      <div className="auth-round" aria-hidden="true">
-        {[0.35, 0.6, 1, 0.85, 1, 0.5, 0.75].map((f, i) => (
-          <svg key={i} viewBox="0 0 48 112" style={{ ['--i' as any]: i }}>
-            <rect x="17" y="2" width="14" height="8" rx="2" className="ar-valve" />
-            <rect x="6" y="12" width="36" height="96" rx="15" className="ar-body" />
-            <clipPath id={'ar' + i}><rect x="6" y="12" width="36" height="96" rx="15" /></clipPath>
-            <rect x="6" y={108 - 90 * f} width="36" height={90 * f} clipPath={`url(#ar${i})`} className={'ar-fill' + (f === 1 ? ' full' : '')} />
+      <div className="v3-body">
+        <h2 className="v3-claim">{lang === 'ar' ? <>كل ريال مخطط له،<br /><em>وكل شهر محسوب.</em></> : <>Every riyal planned.<br /><em>Every month accounted for.</em></>}</h2>
+        <p className="v3-lead">{T('Department budgets, the 13-month cash forecast and budget against actual, in one place.', 'ميزانيات الإدارات والتوقعات النقدية لثلاثة عشر شهرًا والميزانية مقابل الفعلي في مكان واحد.')}</p>
+        <div className="v3-stage" aria-hidden="true">
+          <svg viewBox={`0 0 ${W} ${H}`}>
+            <defs><linearGradient id="v3a" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#9CC8A0" stopOpacity=".35" /><stop offset="1" stopColor="#9CC8A0" stopOpacity="0" /></linearGradient></defs>
+            {[0, 1, 2, 3].map((i) => <line key={i} x1="20" x2={W - 20} y1={30 + i * 50} y2={30 + i * 50} className="v3-grid" />)}
+            <path d={`${xy(pts)} L${W - 20} ${H - 20} L20 ${H - 20}Z`} fill="url(#v3a)" className="v3-area" />
+            <path d={xy(bud)} className="v3-bud" />
+            <path d={xy(pts)} className="v3-act" pathLength={1} />
+            <circle cx={last.x} cy={last.y} r="5" className="v3-dot" /><circle cx={last.x} cy={last.y} r="5" className="v3-ping" />
           </svg>
-        ))}
+          <span className="v3-chip c1"><i className="ok" />{T('Budget approved', 'الميزانية معتمدة')}</span>
+          <span className="v3-chip c2"><i />{T('Forecast to Dec 2027', 'التوقعات حتى ديسمبر 2027')}</span>
+          <span className="v3-chip c3"><i className="warn" />{T('Variance flagged', 'انحراف مرصود')}</span>
+        </div>
+        <ol className="v3-flow">{steps.map((x, i) => <li key={x} style={{ ['--i' as any]: i }}><b>{i + 1}</b>{x}</li>)}</ol>
       </div>
-      <p>{t('tagline')}</p>
-      <span className="auth-foot">{lang === 'ar' ? 'شركة الناقل الأفضل للغاز · المملكة العربية السعودية' : 'Best Gas Carrier Co. · Kingdom of Saudi Arabia'}</span>
+      <span className="auth-foot">{T('Best Gas Carrier Co. · Kingdom of Saudi Arabia', 'شركة الناقل الأفضل للغاز · المملكة العربية السعودية')}</span>
     </section>
   );
 }
