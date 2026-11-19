@@ -1010,3 +1010,46 @@ main { position: relative; }
 .lc-total span { opacity: .75; font-size: 13px; } .lc-total b { font-size: 22px; } .lc-total small { opacity: .7; margin-inline-start: auto; }
 @media (max-width: 760px) { .lc-body { grid-template-columns: minmax(0, 1fr); } .lc-months { grid-template-columns: repeat(3, minmax(0, 1fr)); } .lc-top { grid-template-columns: minmax(0, 1fr) auto; } .lc-top .lc-city { grid-column: 1 / -1; grid-row: 2; } }
 @media (prefers-reduced-motion: reduce) { .lc, .lc-bar i, .lc-months { animation: none !important; } }
+
+/* ---- overview v3: the control-room hero. Ink band, closing cash as the headline, a glowing line that draws itself ---- */
+.ov-hero { position: relative; overflow: hidden; margin-top: 4px; border-radius: 28px; padding: clamp(20px, 2.6vw, 34px) clamp(18px, 2.6vw, 34px) 18px; color: #F4F1E8;
+  background-color: #121813; background-image: radial-gradient(55% 70% at 0% 0%, rgba(77, 109, 81, .55), transparent 70%), radial-gradient(45% 60% at 100% 100%, rgba(77, 109, 81, .3), transparent 70%), radial-gradient(rgba(255, 255, 255, .06) 1px, transparent 1.2px); background-size: auto, auto, 22px 22px;
+  box-shadow: 0 30px 60px -36px rgba(18, 24, 19, .9); animation: v3-up .6s var(--m-ease) both; }
+.ovh-top { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+.ovh-eyebrow { font-size: 13px; color: rgba(244, 241, 232, .66); }
+.ovh-big { font-size: clamp(40px, 5.2vw, 68px); font-weight: 750; letter-spacing: -.04em; line-height: 1.02; margin-top: 6px; display: flex; align-items: baseline; gap: 10px; }
+.ovh-big small { font-size: 16px; font-weight: 600; letter-spacing: 0; color: rgba(244, 241, 232, .5); }
+.ovh-delta { display: inline-flex; margin-top: 10px; padding: 5px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; }
+.ovh-delta.up { background: rgba(127, 210, 138, .14); color: #9FE0A8; } .ovh-delta.down { background: rgba(240, 120, 100, .16); color: #F2A596; }
+.ovh-seg { background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .12); }
+.ovh-seg button { color: rgba(244, 241, 232, .7); } .ovh-seg button:hover { color: #F4F1E8; }
+.ovh-seg button[aria-pressed="true"] { background: #F4F1E8; color: #121813; box-shadow: none; }
+.ovh-chart { position: relative; margin: 14px -6px 0; }
+.ovh-chart svg { width: 100%; height: auto; display: block; overflow: visible; }
+.ovh-grid { stroke: rgba(255, 255, 255, .07); stroke-dasharray: 2 7; }
+.ovh-now { fill: rgba(255, 255, 255, .05); }
+.ovh-buf { stroke: #F0B44C; stroke-opacity: .7; stroke-dasharray: 5 6; }
+.ovh-buf-t { fill: #F0B44C; font-size: 11.5px; opacity: .85; }
+.ovh-area { opacity: 0; animation: v3-fade 1s ease forwards 1.3s; }
+.ovh-line { fill: none; stroke: #9CC8A0; stroke-width: 3.4; stroke-linejoin: round; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: v3-draw 1.6s cubic-bezier(.6, 0, .2, 1) forwards .25s; filter: drop-shadow(0 0 10px rgba(156, 200, 160, .55)); }
+.ovh-zero { stroke: rgba(255, 255, 255, .14); }
+.ovh-net { transform-box: fill-box; transform-origin: center; animation: v3-pop .45s var(--m-ease) both; }
+.ovh-net.up { fill: #7FD28A; opacity: .85; } .ovh-net.down { fill: #EF8A76; opacity: .85; }
+.ovh-low { fill: #121813; stroke: #F0B44C; stroke-width: 3; opacity: 0; animation: v3-fade .3s ease forwards 1.7s; }
+.ovh-low-t { fill: #F0B44C; font-size: 12.5px; font-weight: 650; opacity: 0; animation: v3-fade .3s ease forwards 1.8s; paint-order: stroke; stroke: #121813; stroke-width: 4px; }
+.ovh-pt { fill: #F4F1E8; stroke: #121813; stroke-width: 2.5; transition: r var(--m-fast) var(--m-ease); }
+.ovh-cross { stroke: rgba(244, 241, 232, .35); stroke-dasharray: 2 4; }
+.ovh-x { fill: rgba(244, 241, 232, .5); font-size: 11.5px; } .ovh-x.on { fill: #F4F1E8; font-weight: 700; }
+.ovh-chart rect[tabindex] { cursor: pointer; outline: none; }
+.ovh-tip { position: absolute; transform: translate(-50%, calc(-100% - 16px)); pointer-events: none; display: grid; gap: 2px; min-width: 150px; padding: 10px 12px; border-radius: 12px; background: #F4F1E8; color: #1F2720; font-size: 12px; box-shadow: 0 18px 40px -16px rgba(0, 0, 0, .7); z-index: 2; }
+.ovh-tip > span { color: #5A635B; } .ovh-tip b { color: #1F2720; }
+.ovh-tip .up b { color: #2F7A3A; } .ovh-tip .down b { color: #B0442F; }
+.ovh-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin-top: 10px; border-top: 1px solid rgba(255, 255, 255, .1); }
+.ovh-stat { text-align: start; background: none; border: 0; color: inherit; font: inherit; padding: 14px 14px 6px; display: grid; gap: 3px; cursor: pointer; border-inline-start: 1px solid rgba(255, 255, 255, .08); border-radius: 0; transition: background var(--m-fast) var(--m-ease); }
+.ovh-stat:first-child { border-inline-start: 0; padding-inline-start: 2px; }
+.ovh-stat:hover { background: rgba(255, 255, 255, .04); }
+.ovh-stat .l { font-size: 12px; color: rgba(244, 241, 232, .6); } .ovh-stat b { font-size: 21px; font-weight: 700; letter-spacing: -.02em; } .ovh-stat .s { font-size: 11.5px; color: rgba(244, 241, 232, .5); }
+.ovh-stat.t-pay b { color: #F2A596; } .ovh-stat.t-rec b { color: #9FE0A8; }
+.ov .grid.ov-two > .card, .ov .grid.ov-main > .card { border-radius: 22px; }
+@media (max-width: 900px) { .ovh-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ovh-stat { border-inline-start: 0; padding-inline-start: 2px; } .ovh-x { font-size: 15px; } }
+@media (prefers-reduced-motion: reduce) { .ov-hero, .ovh-area, .ovh-net, .ovh-low, .ovh-low-t { animation: none !important; opacity: 1; } .ovh-line { animation: none; stroke-dashoffset: 0; } }

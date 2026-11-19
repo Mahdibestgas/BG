@@ -5,7 +5,8 @@ import { api, ApiError, type Forecast, type Txt } from '../api';
 import { useSession } from '../App';
 import { useI18n } from '../i18n';
 import { acc, currentWeek, date, m, planDays, repeatsMonths } from '../format';
-import { Bars, Runway } from '../ui/charts';
+import { Bars } from '../ui/charts';
+import { CountUp } from '../ui/bgtCharts';
 import { KhazeenPivot, type KhzCity } from '../ui/KhazeenPivot';
 import type { RentBlock } from '../ui/RentBreakdown';
 
@@ -60,6 +61,54 @@ function Donut({ parts, center, sub, onPick }: { parts: Array<{ k: string; v: nu
       <text x="100" y="97" textAnchor="middle" fontSize="19" fontWeight="650" fill="var(--ink)" className="num">{center}</text>
       <text x="100" y="117" textAnchor="middle" fontSize="10.5" fill="var(--ink2)">{sub}</text>
     </svg>
+  );
+}
+
+/**
+ * The hero chart: closing cash as a glowing line that draws itself, the safety buffer, the lowest point,
+ * the current period, net cash as thin bars underneath, and a read-out that follows the pointer.
+ */
+function HeroRunway({ f, now, monthly, onOpen }: { f: Forecast; now: number; monthly: boolean; onOpen: () => void }) {
+  const { lang } = useI18n();
+  const T = (en: string, ar: string) => (lang === 'ar' ? ar : en);
+  const [tip, setTip] = useState<number | null>(null);
+  const c = f.l1.closing, net = f.l1.net, N = c.length, buf = f.headline.minBuffer, low = f.headline.lowestWeek;
+  const W = 1000, H = 300, L = 8, R = 8, T0 = 26, B = 206, NB = 262;
+  const top = Math.max(...c, buf) * 1.08, bot = Math.min(0, Math.min(...c) * 0.9);
+  const xr = (i: number) => (N > 1 ? L + ((W - L - R) * i) / (N - 1) : W / 2);
+  const x = (i: number) => (lang === 'ar' ? W - xr(i) : xr(i));
+  const y = (v: number) => T0 + ((top - v) / (top - bot || 1)) * (B - T0);
+  const line = c.map((v, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ');
+  const nm = Math.max(...net.map((v) => Math.abs(v)), 1), bw = Math.max(3, Math.min(26, ((W - L - R) / N) * 0.55));
+  const every = Math.max(1, Math.ceil(N / 12));
+  const lab = (i: number) => (monthly ? f.weeks[i].label : date(f.weeks[i].start, lang, { day: 'numeric', month: 'short' }));
+  const step = (W - L - R) / Math.max(1, N - 1);
+  return (
+    <div className="ovh-chart" onMouseLeave={() => setTip(null)}>
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={T('Closing cash and net cash by period', 'النقد الختامي وصافي النقد حسب الفترة')}>
+        <defs>
+          <linearGradient id="ovh-a" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#9CC8A0" stopOpacity=".32" /><stop offset="1" stopColor="#9CC8A0" stopOpacity="0" /></linearGradient>
+        </defs>
+        {[0.25, 0.5, 0.75].map((k) => <line key={k} x1={L} x2={W - R} y1={T0 + (B - T0) * k} y2={T0 + (B - T0) * k} className="ovh-grid" />)}
+        {now >= 0 && <rect x={x(now) - step / 2} y={T0 - 10} width={step} height={NB - T0 + 18} rx="8" className="ovh-now" />}
+        {buf > 0 && buf < top && <><line x1={L} x2={W - R} y1={y(buf)} y2={y(buf)} className="ovh-buf" /><text x={lang === 'ar' ? L + 4 : W - R - 4} y={y(buf) - 6} textAnchor={lang === 'ar' ? 'start' : 'end'} className="ovh-buf-t">{T('safety buffer ', 'هامش الأمان ')}{m(buf)}</text></>}
+        <path d={`${line} L${x(N - 1)} ${B} L${x(0)} ${B}Z`} fill="url(#ovh-a)" className="ovh-area" />
+        <path d={line} className="ovh-line" pathLength={1} />
+        <line x1={L} x2={W - R} y1={(B + NB) / 2 + 12} y2={(B + NB) / 2 + 12} className="ovh-zero" />
+        {net.map((v, i) => { const h = (Math.abs(v) / nm) * 26, mid = (B + NB) / 2 + 12; return <rect key={i} x={x(i) - bw / 2} y={v >= 0 ? mid - h : mid} width={bw} height={Math.max(1.5, h)} rx="2" className={'ovh-net ' + (v >= 0 ? 'up' : 'down')} style={{ animationDelay: 600 + i * 25 + 'ms' }} />; })}
+        <circle cx={x(low)} cy={y(c[low])} r="6" className="ovh-low" />
+        <text x={x(low)} y={y(c[low]) + 22} textAnchor="middle" className="ovh-low-t">{T('lowest ', 'الأدنى ')}{m(c[low])}</text>
+        {c.map((v, i) => <circle key={i} cx={x(i)} cy={y(v)} r={tip === i ? 6 : 0} className="ovh-pt" />)}
+        {tip !== null && <line x1={x(tip)} x2={x(tip)} y1={T0 - 6} y2={NB + 8} className="ovh-cross" />}
+        {f.weeks.map((_, i) => (i % every === 0 || i === N - 1) && <text key={i} x={x(i)} y={H - 6} textAnchor="middle" className={'ovh-x' + (i === now ? ' on' : '')}>{lab(i)}</text>)}
+        {f.weeks.map((_, i) => <rect key={'h' + i} x={x(i) - step / 2} y={0} width={step} height={H} fill="transparent" onMouseEnter={() => setTip(i)} onFocus={() => setTip(i)} onClick={onOpen} tabIndex={0} aria-label={`${f.weeks[i].label} ${m(c[i])}`} />)}
+      </svg>
+      {tip !== null && <div className="ovh-tip" style={{ left: `${(x(tip) / W) * 100}%`, top: `${(y(c[tip]) / H) * 100}%` }}>
+        <b>{f.weeks[tip].label}</b><span>{date(f.weeks[tip].start, lang, { day: 'numeric', month: 'short' })} – {date(f.weeks[tip].end, lang, { day: 'numeric', month: 'short' })}</span>
+        <span>{T('Closing ', 'الختامي ')}<b className="num">{m(c[tip])}</b></span>
+        <span className={net[tip] >= 0 ? 'up' : 'down'}>{T('Net ', 'الصافي ')}<b className="num">{net[tip] >= 0 ? '+' : '−'}{m(Math.abs(net[tip]))}</b></span>
+      </div>}
+    </div>
   );
 }
 
@@ -174,36 +223,43 @@ export function Overview() {
           <p className="sub">{T(`${date(f.weeks[0].start, lang, { day: 'numeric', month: 'long', year: 'numeric' })} to ${date(f.weeks[N - 1].end, lang, { day: 'numeric', month: 'long', year: 'numeric' })}`, `من ${date(f.weeks[0].start, lang, { day: 'numeric', month: 'long', year: 'numeric' })} إلى ${date(f.weeks[N - 1].end, lang, { day: 'numeric', month: 'long', year: 'numeric' })}`)}{now >= 0 ? ' · ' + T(`today is week ${now + 1}`, `اليوم هو الأسبوع ${now + 1}`) : ''} · {T('every card opens its detail', 'كل بطاقة تفتح تفاصيلها')}</p></div>
         <div className="pills">
           <span className={'pill ' + (bad ? 'bad' : 'ok')}>{bad ? '⚠ ' + bad + ' ' + T('checks fail', 'فحوصات فاشلة') : '✓ ' + T(`All ${f.checks.length} checks pass`, `نجحت كل الفحوصات (${f.checks.length})`)}</span>
-          <div className="seg" role="group" aria-label={T('Show by', 'العرض حسب')}>
-            <button type="button" aria-pressed={per === 'w'} onClick={() => pickPer('w')}>{T('Weekly', 'أسبوعي')}</button>
-            <button type="button" aria-pressed={per === 'm'} onClick={() => pickPer('m')}>{T('Monthly', 'شهري')}</button>
-          </div>
           {s.plans.length > 1
             ? <select className="pill" aria-label="Plan" value={s.plan?.id} onChange={(e) => s.pickPlan(e.target.value)} style={{ border: 0, cursor: 'pointer' }}>{s.plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
             : <span className="pill">{s.plan?.name}</span>}
         </div>
       </div>
 
-      <div className="an-kpis ov-kpis">
-        {kpis.map((c, i) => (
-          <button type="button" key={c.l} className={'an-kpi an-in t-' + c.tone} style={{ animationDelay: i * 55 + 'ms' }} onClick={c.go}>
-            <span className="l">{c.l}</span><span className="v num">{c.v}</span><span className="s">{c.s}</span>
-          </button>
-        ))}
-      </div>
+      <section className="ov-hero">
+        <div className="ovh-top">
+          <div>
+            <span className="ovh-eyebrow">{T('Closing cash', 'النقد الختامي')} · {date(vf.weeks[vf.weeks.length - 1].end, lang, { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+            <div className="ovh-big num"><CountUp value={end} format={(v) => m(v)} /><small>SAR</small></div>
+            <span className={'ovh-delta ' + (end >= open ? 'up' : 'down')}>{end >= open ? '▲' : '▼'} {m(Math.abs(end - open))} {T(`since ${date(asOf, lang)}`, `منذ ${date(asOf, lang)}`)}</span>
+          </div>
+          <div className="seg ovh-seg" role="group" aria-label={T('Show by', 'العرض حسب')}>
+            <button type="button" aria-pressed={per === 'w'} onClick={() => pickPer('w')}>{T('Weekly', 'أسبوعي')}</button>
+            <button type="button" aria-pressed={per === 'm'} onClick={() => pickPer('m')}>{T('Monthly', 'شهري')}</button>
+          </div>
+        </div>
+        <HeroRunway f={vf} now={vNow} monthly={per === 'm'} onOpen={() => go('close')} key={per} />
+        <div className="ovh-stats">
+          {kpis.filter((_, k) => k !== 1).map((c) => (
+            <button type="button" key={c.l} className={'ovh-stat t-' + c.tone} onClick={c.go}><span className="l">{c.l}</span><b className="num">{c.v}</b><span className="s">{c.s}</span></button>
+          ))}
+        </div>
+      </section>
 
       <div className="grid ov-main" style={{ marginTop: 20 }}>
         <section className="card an-in">
-          <h2>{per === 'm' ? T('Closing cash, month by month', 'الرصيد الختامي شهرًا بشهر') : T('Closing cash, week by week', 'الرصيد الختامي أسبوعًا بأسبوع')}</h2>
-          <p className="sub">{per === 'm' ? T('Each point is the bank balance at the end of the month, in SAR.', 'كل نقطة هي الرصيد البنكي في نهاية الشهر بالريال.') : T('Each point is the bank balance at the end of the week, in SAR.', 'كل نقطة هي الرصيد البنكي في نهاية الأسبوع بالريال.')}</p>
-          <div style={{ marginTop: 10 }} key={per} className="route-in"><Runway f={vf} now={vNow} /></div>
-          <div className="ov-net" key={'n' + per} aria-label={per === 'm' ? T('Net cash by month', 'صافي النقد حسب الشهر') : T('Net cash by week', 'صافي النقد حسب الأسبوع')}>
-            {vNet.map((v, i) => (
-              <button type="button" key={i} className={'b ' + (v >= 0 ? 'up' : 'down') + (hov === 'w' + i ? ' on' : '')} style={{ ['--h' as string]: Math.max(6, (Math.abs(v) / wnMax) * 100) + '%', animationDelay: i * 30 + 'ms' }}
-                onMouseEnter={() => setHov('w' + i)} onMouseLeave={() => setHov(null)} onClick={() => go()} title={`${vf.weeks[i].label} · ${date(vf.weeks[i].start, lang)} · ${v >= 0 ? '+' : '-'}${m(Math.abs(v))}`}><i /><small>{per === 'm' ? vf.weeks[i].label : i + 1}</small></button>
-            ))}
+          <h2>{T('Receipts and payments', 'المقبوضات والمدفوعات')}</h2>
+          <div className="legend"><span><i style={{ background: 'var(--rec)' }} />{T('Receipts', 'المقبوضات')}</span><span><i style={{ background: 'var(--pay)' }} />{T('Payments', 'المدفوعات')}</span></div>
+          <p className="sub">{per === 'm' ? T('Totals for each month.', 'مجموع كل شهر.') : T('Totals for each week.', 'مجموع كل أسبوع.')}</p>
+          <div style={{ marginTop: 8 }} key={per}><Bars f={vf} /></div>
+          <div className="ov-mini">
+            <div><span>{T('Total receipts', 'إجمالي المقبوضات')}</span><b className="num">{m(R)}</b></div>
+            <div><span>{T('Total payments', 'إجمالي المدفوعات')}</span><b className="num">{m(P)}</b></div>
+            <div><span>{T('Net', 'الصافي')}</span><b className={'num ' + (R - P >= 0 ? 'up' : 'down')}>{m(R - P)}</b></div>
           </div>
-          <p className="sub" style={{ marginTop: 4 }}>{per === 'm' ? T('Net cash in each month: green adds, red takes away.', 'صافي النقد في كل شهر: الأخضر يضيف والأحمر يخصم.') : T('Net cash in each week: green adds, red takes away.', 'صافي النقد في كل أسبوع: الأخضر يضيف والأحمر يخصم.')}</p>
         </section>
 
         <section className="card an-in ov-dec">
@@ -219,7 +275,7 @@ export function Overview() {
         </section>
       </div>
 
-      <div className="grid ov-three" style={{ marginTop: 20 }}>
+      <div className="grid ov-two" style={{ marginTop: 20 }}>
         <section className="card an-in">
           <h2>{T('Where each riyal goes', 'أين يذهب كل ريال')}</h2>
           <p className="sub">{T('Payments over the whole study. Click a slice.', 'المدفوعات على كامل الدراسة. اضغط على شريحة.')}</p>
@@ -227,18 +283,6 @@ export function Overview() {
           <ul className="ov-leg">
             {parts.map((p) => <li key={p.k}><button type="button" onClick={() => go(p.link)}><i style={{ background: p.col }} /><span>{p.label}</span><b className="num">{pct((p.v / P) * 100)}</b></button></li>)}
           </ul>
-        </section>
-
-        <section className="card an-in">
-          <h2>{T('Receipts and payments', 'المقبوضات والمدفوعات')}</h2>
-          <div className="legend"><span><i style={{ background: 'var(--rec)' }} />{T('Receipts', 'المقبوضات')}</span><span><i style={{ background: 'var(--pay)' }} />{T('Payments', 'المدفوعات')}</span></div>
-          <p className="sub">{per === 'm' ? T('Totals for each month.', 'مجموع كل شهر.') : T('Totals for each week.', 'مجموع كل أسبوع.')}</p>
-          <div style={{ marginTop: 8 }} key={per}><Bars f={vf} /></div>
-          <div className="ov-mini">
-            <div><span>{T('Total receipts', 'إجمالي المقبوضات')}</span><b className="num">{m(R)}</b></div>
-            <div><span>{T('Total payments', 'إجمالي المدفوعات')}</span><b className="num">{m(P)}</b></div>
-            <div><span>{T('Net', 'الصافي')}</span><b className={'num ' + (R - P >= 0 ? 'up' : 'down')}>{m(R - P)}</b></div>
-          </div>
         </section>
 
         <section className="card an-in">
