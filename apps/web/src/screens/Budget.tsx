@@ -31,7 +31,7 @@ const uid = () => Math.random().toString(36).slice(2, 10);
 function NumInput({ value, onValue, disabled, label, width, className = 'num' }: { value: number | undefined; onValue: (n: number | undefined) => void; disabled?: boolean; label: string; width?: number; className?: string }) {
   const [text, setText] = useState<string | null>(null);
   return <input className={className} inputMode="decimal" style={width ? { width } : undefined} aria-label={label} disabled={disabled}
-    value={text ?? (value === undefined ? '' : String(value))}
+    value={text ?? (value === undefined ? '' : value.toLocaleString('en-US', { maximumFractionDigits: 2 }))}
     onFocus={() => setText(value === undefined ? '' : String(value))}
     onChange={(e) => { const v = e.target.value; setText(v); const t = v.replace(/,/g, '').trim(); if (t === '') onValue(undefined); else if (/^-?\d*\.?\d*$/.test(t) && t !== '-' && t !== '.') onValue(Number(t)); }}
     onBlur={() => setText(null)} />;
@@ -278,6 +278,8 @@ export function DeptBudget() {
   const { meta } = useBudgetMeta();
   const [d, setD] = useState<DeptData | null>(null), [lines, setLines] = useState<Line[]>([]), [positions, setPositions] = useState<Position[]>([]);
   const [study, setStudy] = useState<Study>(EMPTY_STUDY), [plan, setPlan] = useState<DeptPlan>(EMPTY_PLAN), [tab, setTab] = useState<'study' | 'plan' | 'budget'>('study');
+  const [lv, setLv] = useState<'cards' | 'table'>(() => { try { return localStorage.getItem('cf13.lineView') === 'table' ? 'table' : 'cards'; } catch { return 'cards'; } });
+  const pickLv = (v: 'cards' | 'table') => { setLv(v); try { localStorage.setItem('cf13.lineView', v); } catch { /* private window */ } };
   const [dirty, setDirty] = useState(false), [busy, setBusy] = useState(false), [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null), [comment, setComment] = useState('');
   const load = useCallback(() => api<DeptData>('GET', `/api/budget/cycles/${cycleId}/departments/${dept}`).then((r) => {
     setD(r); setLines((r.submission?.body.lines || []).filter((l) => !l.posId)); setPositions(r.submission?.body.positions || []); setStudy({ ...EMPTY_STUDY, ...(r.submission?.body.study || {}) }); setPlan({ ...EMPTY_PLAN, ...(r.submission?.body.plan || {}) }); setDirty(false);
@@ -365,10 +367,16 @@ export function DeptBudget() {
       {tab === 'budget' && <GuidanceCard meta={meta} items={items} lines={all} n={n} editable={editable}
         onUse={(ids) => { setLines([...lines, ...ids.map((id) => ({ id: uid(), item: id, region: meta.regions[0]?.id || '', desc: T('From guidance: ', 'من الإرشاد: ') + (meta.guidance?.source || ''), amounts: new Array(n).fill(meta.guidance!.items[id]) }))]); touch(); }} />}
       {tab === 'budget' && <section className="card" style={{ marginTop: 20 }}>
-        <h2>{dept === 'hr' ? T('Other HR lines', 'بنود الموارد البشرية الأخرى') : T('Budget lines', 'بنود الميزانية')}</h2>
+        <div className="guide-head"><h2>{dept === 'hr' ? T('Other HR lines', 'بنود الموارد البشرية الأخرى') : T('Budget lines', 'بنود الميزانية')}</h2>
+          <div className="seg" role="group" aria-label={T('View', 'العرض')}><button type="button" aria-pressed={lv === 'cards'} onClick={() => pickLv('cards')}>{T('Cards', 'بطاقات')}</button><button type="button" aria-pressed={lv === 'table'} onClick={() => pickLv('table')}>{T('Spreadsheet', 'جدول')}</button></div></div>
         <p className="sub">{T('One line per item and city. Use quantity × price where the item has a unit (cylinders, litres, vehicles).', 'سطر لكل بند ومدينة. استخدم الكمية × السعر للبنود التي لها وحدة (أسطوانات، لترات، مركبات).')}</p>
         {lines.length === 0 && <p className="empty" style={{ marginTop: 12 }}>{T('No lines yet. Add the first item below.', 'لا توجد أسطر بعد. أضف أول بند أدناه.')}</p>}
-        {lines.length > 0 && (
+        {lines.length > 0 && lv === 'cards' && <div className="lc-list">{lines.map((l, i) => (
+          <LineCard key={l.id} line={l} item={itemOf(l.item)} groups={groups} regions={meta.regions} months={d.cycle.monthKeys} editable={editable}
+            guide={meta.guidance?.items[l.item]} onChange={(fn) => setLine(i, fn)} onRemove={() => { setLines(lines.filter((_, j) => j !== i)); touch(); }} />))}
+          <div className="lc-total"><span>{T('Total of these lines', 'إجمالي هذه الأسطر')}</span><b className="num">{m(sum(lines.map((l) => sum(l.amounts))))}</b><small>{T('a month on average ', 'متوسط شهري ')}{m(sum(lines.map((l) => sum(l.amounts))) / Math.max(1, n))}</small></div>
+        </div>}
+        {lines.length > 0 && lv === 'table' && (
           <div className="ledger-wrap" style={{ marginTop: 12 }}>
             <table className="ledger bgt-grid">
               <thead><tr><th className="lab">{T('Item, city, description', 'البند والمدينة والوصف')}</th>{d.cycle.monthKeys.map((k) => <th key={k}>{monthLabel(k, lang)}</th>)}<th>{T('Total', 'الإجمالي')}</th></tr></thead>
@@ -452,7 +460,7 @@ function GuidanceCard({ meta, items, lines, n, editable, onUse }: { meta: Meta; 
         <tbody>{rows.map((i) => {
           const gv = g.items[i.id], ev = entered(i.id), d = ev === null ? null : ev - gv;
           return <tr key={i.id}><td>{txt(i.name)}</td><td className="n num">{acc(gv)}</td><td className="n num">{ev === null ? <span className="sub">{T('not entered', 'لم يُدخل')}</span> : acc(ev)}</td>
-            <td className={'n num ' + (d === null ? '' : Math.abs(d) <= gv * 0.1 ? '' : 'warn-t')}>{d === null ? '–' : (d >= 0 ? '+' : '') + acc(d) + (gv ? ` (${d >= 0 ? '+' : ''}${Math.round((d / gv) * 100)}%)` : '')}</td>
+            <td className={'n num ' + (d === null ? '' : Math.abs(d) <= gv * 0.1 ? '' : 'warn-t')}>{d === null ? '–' : Math.abs(d) < 0.5 ? T('on guide', 'مطابق') : (d > 0 ? '+' : '') + acc(d) + (gv ? ` (${d > 0 ? '+' : ''}${Math.round((d / gv) * 100)}%)` : '')}</td>
             <td>{editable && ev === null && <button type="button" className="link" onClick={() => onUse([i.id])}>{T('Use', 'استخدم')}</button>}</td></tr>;
         })}</tbody></table>
       {g.note && <p className="sub" style={{ marginTop: 8 }}>{g.note}</p>}
@@ -490,6 +498,62 @@ function GuidanceLoader({ meta, onDone }: { meta: Meta; onDone: (t: string) => v
         {msg && <span className="msg err">{msg}</span>}
       </div>
     </section>
+  );
+}
+
+/**
+ * One budget line as a card: what it is, how much a month, and the shape of the year as a bar strip.
+ * The twelve months open only when the department wants them different from each other.
+ */
+function LineCard({ line: l, item: it, groups, regions, months, editable, guide, onChange, onRemove }: {
+  line: Line; item: Item | undefined; groups: Array<{ g: Txt; items: Item[] }>; regions: Array<{ id: string; name: Txt }>; months: string[]; editable: boolean; guide: number | undefined;
+  onChange: (fn: (l: Line) => Line) => void; onRemove: () => void;
+}) {
+  const { lang, txt } = useI18n();
+  const T = (en: string, ar: string) => (lang === 'ar' ? ar : en);
+  const [open, setOpen] = useState(false), [hover, setHover] = useState<number | null>(null);
+  const n = months.length, tot = sum(l.amounts), avg = tot / Math.max(1, n);
+  const vals = l.basis ? l.basis.qty : l.amounts;
+  const flat = vals.every((v) => v === vals[0]);
+  const mx = Math.max(...l.amounts.map((v) => Math.abs(v)), 1);
+  const setAll = (v: number) => onChange((x) => (x.basis ? { ...x, basis: { ...x.basis, qty: new Array(n).fill(v) } } : { ...x, amounts: new Array(n).fill(v) }));
+  const setOne = (k: number, v: number) => onChange((x) => (x.basis ? { ...x, basis: { ...x.basis, qty: x.basis.qty.map((y, j) => (j === k ? v : y)) } } : { ...x, amounts: x.amounts.map((y, j) => (j === k ? v : y)) }));
+  const grow = (pct: number) => onChange((x) => { const base = (x.basis ? x.basis.qty : x.amounts)[0] || 0; const a = Array.from({ length: n }, (_, j) => Math.round(base * Math.pow(1 + pct / 100, j) * 100) / 100); return x.basis ? { ...x, basis: { ...x.basis, qty: a } } : { ...x, amounts: a }; });
+  const diff = guide ? (avg - guide) / guide : null;
+  const kindCls = it?.kind === 'revenue' ? 'rev' : it?.kind === 'capex' ? 'cap' : 'cost';
+  return (
+    <article className={'lc ' + kindCls}>
+      <div className="lc-top">
+        <select className="lc-item" disabled={!editable} value={l.item} onChange={(e) => onChange((x) => ({ ...x, item: e.target.value }))} aria-label={T('Item', 'البند')}>
+          {groups.map((gr) => <optgroup key={gr.g.en} label={txt(gr.g)}>{gr.items.map((x) => <option key={x.id} value={x.id}>{txt(x.name)}</option>)}</optgroup>)}
+        </select>
+        <select className="lc-city" disabled={!editable} value={l.region} onChange={(e) => onChange((x) => ({ ...x, region: e.target.value }))} aria-label={T('City', 'المدينة')}>{regions.map((r) => <option key={r.id} value={r.id}>{txt(r.name)}</option>)}</select>
+        {editable && <button type="button" className="lc-x" onClick={onRemove} aria-label={T('Remove this line', 'حذف هذا السطر')} title={T('Remove', 'حذف')}>×</button>}
+      </div>
+      <input className="lc-desc" disabled={!editable} placeholder={T('What is it for? (optional)', 'لأي غرض؟ (اختياري)')} value={l.desc} onChange={(e) => onChange((x) => ({ ...x, desc: e.target.value }))} />
+      <div className="lc-body">
+        <div className="lc-amount">
+          {l.basis ? <>
+            <label><span>{txt(it?.unit) || T('Quantity', 'الكمية')} {T('a month', 'شهريًا')}</span><NumInput disabled={!editable} label={T('Quantity a month', 'الكمية شهريًا')} className="lc-big num" value={flat ? vals[0] : undefined} onValue={(v) => setAll(v ?? 0)} /></label>
+            <label><span>{T('Price each', 'سعر الوحدة')}</span><NumInput disabled={!editable} label={T('Price', 'السعر')} className="lc-mid num" value={l.basis.price} onValue={(v) => onChange((x) => ({ ...x, basis: { ...x.basis!, price: v ?? 0 } }))} /></label>
+          </> : <label><span>{T('SAR a month', 'ريال شهريًا')}</span><NumInput disabled={!editable} label={T('Amount a month', 'المبلغ شهريًا')} className="lc-big num" value={flat ? vals[0] : undefined} onValue={(v) => setAll(v ?? 0)} /></label>}
+          {!flat && <small className="lc-varies">{T('Varies by month · average ', 'يختلف حسب الشهر · المتوسط ')}{m(avg)}</small>}
+          <div className="lc-sum"><b className="num">{m(tot)}</b><span>{T('for the year', 'للسنة')}</span></div>
+          {guide ? <span className={'lc-guide' + (diff !== null && Math.abs(diff) > 0.1 ? ' off' : '')}>{T('Guide ', 'الإرشاد ')}{m(guide)}{T(' a month', ' شهريًا')}{diff !== null && tot && Math.round(diff * 100) !== 0 ? ` · ${diff > 0 ? '+' : ''}${Math.round(diff * 100)}%` : ''}</span> : null}
+        </div>
+        <div className="lc-strip" role="img" aria-label={T('Amount by month', 'المبلغ حسب الشهر')}>
+          {l.amounts.map((v, k) => <button type="button" key={k} className={'lc-bar' + (hover === k ? ' on' : '')} style={{ ['--h' as string]: Math.max(4, (Math.abs(v) / mx) * 100) + '%', animationDelay: k * 35 + 'ms' }}
+            onMouseEnter={() => setHover(k)} onMouseLeave={() => setHover(null)} onClick={() => setOpen(true)} title={monthLabel(months[k], lang) + ' · ' + m(v)}><i /><small>{date(months[k] + '-01', lang, { month: 'short' })}</small></button>)}
+          {hover !== null && <span className="lc-tip num">{monthLabel(months[hover], lang)} · {m(l.amounts[hover])}</span>}
+        </div>
+      </div>
+      {editable && <div className="lc-tools">
+        <button type="button" className="link" onClick={() => setOpen(!open)} aria-expanded={open}>{open ? T('Hide months', 'إخفاء الأشهر') : T('Different each month', 'مختلف كل شهر')}</button>
+        <button type="button" className="link" onClick={() => grow(2)}>{T('Grow 2% a month', 'نمو 2% شهريًا')}</button>
+        {it?.unit && <button type="button" className="link" onClick={() => onChange((x) => (x.basis ? { ...x, basis: undefined } : { ...x, basis: { qty: new Array(n).fill(0), price: 0 } }))}>{l.basis ? T('Enter amounts instead', 'إدخال مبالغ بدلًا من ذلك') : T('Quantity × price', 'الكمية × السعر')}</button>}
+      </div>}
+      {open && <div className="lc-months">{months.map((k, j) => <label key={k}><span>{monthLabel(k, lang)}</span><NumInput disabled={!editable} label={monthLabel(k, lang)} value={vals[j]} onValue={(v) => setOne(j, v ?? 0)} /></label>)}</div>}
+    </article>
   );
 }
 

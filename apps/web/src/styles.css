@@ -972,3 +972,41 @@ main { position: relative; }
 /* login v3: one continuous ink surface behind both halves */
 .auth { background-color: #121813; background-image: radial-gradient(45% 55% at 8% 5%, rgba(77, 109, 81, .45), transparent 70%), radial-gradient(40% 50% at 78% 45%, rgba(77, 109, 81, .22), transparent 70%), radial-gradient(rgba(255, 255, 255, .07) 1px, transparent 1.2px); background-size: auto, auto, 22px 22px; }
 .auth-art.v3, .auth-form { background: transparent; background-image: none; }
+
+/* department budget lines as cards: amount a month, the year as a bar strip, months only when needed */
+.lc-list { display: grid; gap: 14px; margin-top: 14px; }
+.lc { position: relative; border: 1px solid var(--line); border-radius: 18px; padding: 16px 18px 14px; background: var(--surface); box-shadow: 0 1px 2px rgba(16, 24, 20, .04); transition: box-shadow var(--m-fast) var(--m-ease), border-color var(--m-fast) var(--m-ease); animation: rise .4s var(--m-ease) both; }
+.lc::before { content: ''; position: absolute; inset-block: 16px; inset-inline-start: 0; width: 4px; border-radius: 0 4px 4px 0; background: var(--pay); }
+[dir="rtl"] .lc::before { border-radius: 4px 0 0 4px; }
+.lc.rev::before { background: var(--rec); } .lc.cap::before { background: var(--s3, #5b6fb0); }
+.lc:focus-within { border-color: var(--brand-ink); box-shadow: 0 10px 30px -18px rgba(16, 24, 20, .35); }
+.lc-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(120px, 180px) auto; gap: 8px; align-items: center; }
+.lc select, .lc input { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 10px; min-height: 38px; padding: 6px 10px; width: 100%; }
+.lc .lc-item { font-weight: 650; font-size: 15px; border-color: transparent; background: var(--sunken); }
+.lc-x { width: 34px; height: 34px; border-radius: 50%; border: 0; background: transparent; color: var(--ink2); font-size: 22px; line-height: 1; cursor: pointer; }
+.lc-x:hover { background: var(--crit-bg, #fbe9e7); color: var(--crit); }
+.lc .lc-desc { margin-top: 8px; border-style: dashed; font-size: 13px; min-height: 34px; }
+.lc-body { display: grid; grid-template-columns: minmax(200px, 260px) minmax(0, 1fr); gap: 18px; margin-top: 14px; align-items: end; }
+.lc-amount { display: grid; gap: 8px; }
+.lc-amount label { display: grid; gap: 4px; } .lc-amount label > span { font-size: 12px; color: var(--ink2); }
+.lc .lc-big { font-size: 24px; font-weight: 700; min-height: 50px; border-radius: 12px; text-align: start; letter-spacing: -.01em; }
+.lc .lc-mid { font-size: 16px; font-weight: 600; text-align: start; }
+.lc-varies { color: var(--warn); font-size: 12px; }
+.lc-sum { display: flex; align-items: baseline; gap: 6px; } .lc-sum b { font-size: 15px; } .lc-sum span { font-size: 12px; color: var(--ink2); }
+.lc-guide { justify-self: start; font-size: 12px; padding: 4px 10px; border-radius: 999px; background: var(--brand-soft); color: var(--brand-ink); font-weight: 600; }
+.lc-guide.off { background: var(--warn-bg); color: var(--warn); }
+.lc-strip { position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 5px; height: 120px; align-items: end; padding-top: 22px; }
+.lc-bar { border: 0; background: none; padding: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; cursor: pointer; min-width: 0; font: inherit; }
+.lc-bar i { display: block; width: 100%; max-width: 34px; height: var(--h); border-radius: 6px 6px 3px 3px; background: color-mix(in oklab, var(--pay) 75%, transparent); transform-origin: bottom; animation: an-grow .5s var(--m-ease) both; animation-delay: inherit; transition: height var(--m-std) var(--m-ease), background var(--m-fast); }
+.lc.rev .lc-bar i { background: color-mix(in oklab, var(--rec) 80%, transparent); }
+.lc.cap .lc-bar i { background: color-mix(in oklab, var(--s3, #5b6fb0) 80%, transparent); }
+.lc-bar:hover i, .lc-bar.on i { filter: brightness(1.12) saturate(1.1); }
+.lc-bar small { font-size: 10px; color: var(--ink2); margin-top: 4px; white-space: nowrap; overflow: hidden; max-width: 100%; }
+.lc-tip { position: absolute; top: 0; inset-inline-end: 0; font-size: 12px; font-weight: 600; background: var(--ink); color: var(--surface); padding: 3px 8px; border-radius: 6px; }
+.lc-tools { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 13px; }
+.lc-months { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin-top: 12px; animation: rise .3s var(--m-ease) both; }
+.lc-months label { display: grid; gap: 3px; } .lc-months span { font-size: 11.5px; color: var(--ink2); } .lc-months input { text-align: end; min-height: 34px; }
+.lc-total { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 14px 18px; border-radius: 16px; background: var(--ink); color: var(--surface); }
+.lc-total span { opacity: .75; font-size: 13px; } .lc-total b { font-size: 22px; } .lc-total small { opacity: .7; margin-inline-start: auto; }
+@media (max-width: 760px) { .lc-body { grid-template-columns: minmax(0, 1fr); } .lc-months { grid-template-columns: repeat(3, minmax(0, 1fr)); } .lc-top { grid-template-columns: minmax(0, 1fr) auto; } .lc-top .lc-city { grid-column: 1 / -1; grid-row: 2; } }
+@media (prefers-reduced-motion: reduce) { .lc, .lc-bar i, .lc-months { animation: none !important; } }
