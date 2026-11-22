@@ -1283,3 +1283,10 @@ main { position: relative; }
 .at-comment { margin: 8px 0 0; padding: 8px 12px; border-inline-start: 3px solid var(--warn); background: var(--warn-bg); border-radius: 0 10px 10px 0; font-size: 13.5px; }
 @media (prefers-reduced-motion: reduce) { .at-line li.on i { animation: none; } }
 @media (max-width: 560px) { .at-line li span { font-size: 11px; } }
+
+/* backups card */
+.bk-list { list-style: none; padding: 0; margin: 10px 0 0; }
+.bk-list li { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; font-size: 13.5px; }
+.bk-list li b { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; color: #fff; }
+.bk-list li.ok { background: var(--good-bg); } .bk-list li.ok b { background: var(--good); }
+.bk-list li.warn { background: var(--warn-bg); } .bk-list li.warn b { background: var(--warn); }

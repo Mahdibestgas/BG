@@ -10,6 +10,7 @@ import { Auth2Controller } from './auth2.controller';
 import { AuthController } from './auth.controller';
 import { BudgetController } from './budget.controller';
 import { MembersController } from './members.controller';
+import { BackupMailer, PlatformController } from './backup';
 import { DocsController } from './openapi';
 import { Db } from './db';
 import { AuthGuard, ErrorFilter } from './http';
@@ -18,8 +19,8 @@ import { RateLimitGuard } from './ratelimit';
 import { AuditController, TenantController } from './tenant.controller';
 
 @Module({
-  controllers: [AuthController, PlansController, TenantController, AuditController, ApiKeysController, DocsController, Auth2Controller, MembersController, BudgetController],
-  providers: [Db, { provide: APP_GUARD, useClass: RateLimitGuard }, { provide: APP_GUARD, useClass: AuthGuard }, { provide: APP_FILTER, useClass: ErrorFilter }]
+  controllers: [PlatformController, AuthController, PlansController, TenantController, AuditController, ApiKeysController, DocsController, Auth2Controller, MembersController, BudgetController],
+  providers: [Db, BackupMailer, { provide: APP_GUARD, useClass: RateLimitGuard }, { provide: APP_GUARD, useClass: AuthGuard }, { provide: APP_FILTER, useClass: ErrorFilter }]
 })
 class AppModule {}
 

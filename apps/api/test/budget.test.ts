@@ -290,3 +290,23 @@ test('guidance: owner and finance load it, each head sees only their own items, 
   r = await O.call('PUT', '/api/budget/guidance', { source: 'x', items: {} });
   assert.equal(r.status, 200); assert.equal((await O.call('GET', '/api/budget/meta')).body.guidance, null, 'removed');
 });
+
+test('backup: only the system owner downloads it; it holds the company and its budgets, and no passwords', async () => {
+  const prev = process.env.CF13_PLATFORM_OWNERS;
+  process.env.CF13_PLATFORM_OWNERS = `test-o-${run}@example.com`;
+  try {
+    assert.equal((await HR.call('GET', '/api/platform/backup')).status, 403, 'a department head cannot');
+    assert.equal((await X.call('GET', '/api/platform/backup')).status, 403, 'another company owner cannot');
+    const st = await O.call('GET', '/api/platform/backup-status');
+    assert.equal(st.status, 200); assert.ok(st.body.to.includes(`test-o-${run}@example.com`));
+    const r = await fetch(base + '/api/platform/backup', { headers: { cookie: O.cookie } });
+    assert.equal(r.status, 200);
+    const { gunzipSync } = await import('node:zlib');
+    const doc = JSON.parse(gunzipSync(Buffer.from(await r.arrayBuffer())).toString('utf8'));
+    assert.equal(doc.format, 'khitta-backup');
+    const mine = doc.companies.find((c: any) => c.company.id === tenant);
+    assert.ok(mine, 'my company is in it'); assert.ok(mine.budgetCycles.length >= 1); assert.ok(mine.members.length >= 3);
+    assert.ok(!doc.companies.some((c: any) => c.company.id === tenantX), 'a company I am not in is not');
+    assert.ok(!/passwordHash|password_hash/.test(JSON.stringify(doc)), 'no password hashes');
+  } finally { process.env.CF13_PLATFORM_OWNERS = prev; }
+});
