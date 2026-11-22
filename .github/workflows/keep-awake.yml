@@ -1,7 +1,7 @@
 name: keep-awake
 # Render's free web service sleeps after 15 idle minutes. GitHub starts scheduled jobs late (often ~50 minutes
 # apart), so a short ping per schedule leaves gaps. Instead each run stays up for almost six hours and pings every
-# 5 minutes; the hourly schedule queues the next run behind it (one at a time), so there is no gap.
+# 5 minutes; the hourly schedule queues the next run behind it (one at a time), so there is no gap. Started 22 Nov 2026.
 # Actions minutes are free on a public repository (Mahdibestgas/BG is public for this). On a private one this uses about 43,000 minutes a month.
 on:
   schedule:
