@@ -45,8 +45,8 @@ export function Companies() {
 function BackupCard() {
   const { lang } = useI18n();
   const T = (en: string, ar: string) => (lang === 'ar' ? ar : en);
-  const [st, setSt] = useState<{ dailyEmail: boolean; to: string[] } | null>(null), [busy, setBusy] = useState(false), [msg, setMsg] = useState('');
-  useEffect(() => { api<{ dailyEmail: boolean; to: string[] }>('GET', '/api/platform/backup-status').then(setSt).catch(() => setSt(null)); }, []);
+  const [st, setSt] = useState<{ dailyEmail: boolean; to: string[]; usedBytes: number | null; limitBytes: number } | null>(null), [busy, setBusy] = useState(false), [msg, setMsg] = useState('');
+  useEffect(() => { api<{ dailyEmail: boolean; to: string[]; usedBytes: number | null; limitBytes: number }>('GET', '/api/platform/backup-status').then(setSt).catch(() => setSt(null)); }, []);
   async function download() {
     setBusy(true); setMsg('');
     try {
@@ -67,6 +67,10 @@ function BackupCard() {
         <li className={st?.dailyEmail ? 'ok' : 'warn'}><b aria-hidden="true">{st?.dailyEmail ? '✓' : '!'}</b><span>{st?.dailyEmail
           ? T(`Automatic: every day after 02:00 Riyadh time, emailed to ${st.to.join(', ')}.`, `تلقائي: كل يوم بعد الساعة 02:00 بتوقيت الرياض، يُرسل إلى ${st.to.join('، ')}.`)
           : T('Automatic daily email is off until the mail service key (RESEND_API_KEY) is set in Render. Download a copy by hand meanwhile.', 'الإرسال اليومي التلقائي متوقف حتى يُضاف مفتاح خدمة البريد (RESEND_API_KEY) في Render. نزّل نسخة يدويًا حتى ذلك الحين.')}</span></li>
+        {st?.usedBytes != null && (() => { const pc = Math.min(100, (st.usedBytes / st.limitBytes) * 100), mb = (b: number) => (b / 1048576).toFixed(b < 10485760 ? 1 : 0); return (
+          <li className={pc >= 70 ? 'warn' : 'ok'}><b aria-hidden="true">{pc >= 70 ? '!' : '✓'}</b><span style={{ flex: 1 }}>{T(`Storage: ${mb(st.usedBytes)} MB used of ${mb(st.limitBytes)} MB on the free database (${pc.toFixed(1)}%).`, `التخزين: ${mb(st.usedBytes)} م.ب من ${mb(st.limitBytes)} م.ب في قاعدة البيانات المجانية (${pc.toFixed(1)}%).`)}
+            <span className="bk-meter"><i style={{ width: Math.max(1, pc) + '%' }} /></span>
+            {pc >= 70 && <span className="sub">{T(' Download a backup, then archive old plan versions, or move to a paid plan.', ' نزّل نسخة ثم أرشف نسخ الخطط القديمة أو انتقل لخطة مدفوعة.')}</span>}</span></li>); })()}
       </ul>
       <div className="actions"><button type="button" className="btn" disabled={busy} onClick={download}>{busy ? T('Preparing…', 'جارٍ التحضير…') : T('Download backup now', 'تنزيل نسخة الآن')}</button>{msg && <span className="msg ok">{msg}</span>}</div>
     </section>

@@ -6,6 +6,7 @@ import { applyTheme } from './theme';
 import { Shell } from './ui/Shell';
 import { SignIn, SignUp } from './screens/Auth';
 import { Overview } from './screens/Overview';
+import { CashControl } from './screens/CashControl';
 import { CashFlow } from './screens/CashFlow';
 import { Balances } from './screens/Balances';
 import { Branding } from './screens/Branding';
@@ -116,6 +117,7 @@ export function App() {
           <Route path="/" element={<Overview />} />
           <Route path="/cash-flow" element={<CashFlow />} />
           <Route path="/analysis" element={<Analysis />} />
+          <Route path="/cash-control" element={<CashControl />} />
           <Route path="/variance" element={<VarianceScreen />} />
           <Route path="/pnl" element={<Pnl />} />
           <Route path="/board" element={<Board />} />

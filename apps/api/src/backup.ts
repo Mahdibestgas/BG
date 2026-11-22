@@ -56,7 +56,10 @@ export class PlatformController {
   async status(@Context() ctx: Ctx) {
     const owners = await platformOwners(this.db);
     if (!owners.some((o) => o.id === ctx.accountId)) throw new AppError('forbidden', 403);
-    return { ok: true, dailyEmail: mailReady() && process.env.CF13_BACKUP_EMAIL !== 'off', to: owners.map((o) => o.email) };
+    // storage used by the whole database, against the free plan's limit (CF13_DB_LIMIT_MB, default 512)
+    let usedBytes: number | null = null;
+    try { usedBytes = Number((await this.db.$queryRaw<Array<{ b: bigint }>>`SELECT pg_database_size(current_database()) AS b`)[0].b); } catch { usedBytes = null; }
+    return { ok: true, dailyEmail: mailReady() && process.env.CF13_BACKUP_EMAIL !== 'off', to: owners.map((o) => o.email), usedBytes, limitBytes: Number(process.env.CF13_DB_LIMIT_MB || 512) * 1024 * 1024 };
   }
 
   /** The system owner downloads a full backup now. Members and finance users of a company cannot. */
