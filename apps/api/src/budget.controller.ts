@@ -198,8 +198,17 @@ export class BudgetController {
       const c = await this.cycle(tx, id);
       const all = await tx.budgetSubmission.findMany({ where: { cycleId: id, department: dept }, orderBy: { revision: 'desc' } });
       const last = all[0];
+      // the approval trail of this department only: its own submissions' audit entries, with who acted
+      const ev = all.length ? await tx.auditEntry.findMany({ where: { entity: 'budget', entityId: { in: all.map((x) => x.id) } }, orderBy: { at: 'asc' }, take: 300 }) : [];
+      const actorIds = [...new Set(ev.map((e) => e.actorId).filter((x): x is string => !!x))];
+      const people = actorIds.length ? await tx.membership.findMany({ where: { accountId: { in: actorIds } }, include: { account: { select: { name: true } } } }) : [];
+      const who = (id: string | null) => { const p = people.find((x) => x.accountId === id); return p ? { name: p.account.name, role: p.role } : null; };
+      const history = ev.map((e) => {
+        const ch = (e.changes || {}) as { revision?: number; comment?: string; revenue?: number; costs?: number; capex?: number; lines?: number };
+        return { action: e.action.replace(/^budget_/, ''), at: e.at, by: who(e.actorId), revision: ch.revision ?? null, comment: ch.comment ?? null, total: Math.round((ch.revenue || 0) + (ch.costs || 0) + (ch.capex || 0)), lines: ch.lines ?? null };
+      });
       return {
-        ok: true, cycle: { id: c.id, name: c.name, status: c.status, deadline: c.deadline, monthKeys: monthKeys(c.startMonth, c.months) },
+        ok: true, history, cycle: { id: c.id, name: c.name, status: c.status, deadline: c.deadline, monthKeys: monthKeys(c.startMonth, c.months) },
         department: dept,
         submission: last ? { id: last.id, revision: last.revision, status: last.status, version: last.version, body: last.body, submittedAt: last.submittedAt, reviewedAt: last.reviewedAt, reviewComment: last.reviewComment, updatedAt: last.updatedAt } : null,
         approvedRevision: all.find((x) => x.status === 'approved')?.revision ?? null,

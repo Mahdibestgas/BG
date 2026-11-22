@@ -268,7 +268,8 @@ function Settings({ meta, onDone }: { meta: Meta; onDone: () => void }) {
 }
 
 // ---------------------------------------------------------------- department workspace
-interface DeptData { cycle: Cycle & { monthKeys: string[] }; department: string; submission: null | { id: string; revision: number; status: Status; version: number; body: { lines: Line[]; positions: Position[]; study?: Study; plan?: DeptPlan }; reviewComment: string | null; submittedAt: string | null; updatedAt: string }; approvedRevision: number | null; revisions: Array<{ revision: number; status: Status }> }
+interface DeptData { cycle: Cycle & { monthKeys: string[] }; department: string; submission: null | { id: string; revision: number; status: Status; version: number; body: { lines: Line[]; positions: Position[]; study?: Study; plan?: DeptPlan }; reviewComment: string | null; submittedAt: string | null; updatedAt: string }; approvedRevision: number | null; revisions: Array<{ revision: number; status: Status }>; history?: HistoryEvent[] }
+interface HistoryEvent { action: string; at: string; by: { name: string; role: string } | null; revision: number | null; comment: string | null; total: number; lines: number | null }
 
 export function DeptBudget() {
   const { cycle: cycleId = '', dept = '' } = useParams();
@@ -347,6 +348,7 @@ export function DeptBudget() {
       {s.me.role !== 'contributor' && <p className="sub" style={{ marginTop: -12, marginBottom: 14 }}><Link className="link" to="/budget">{T('← All departments', '← كل الإدارات')}</Link></p>}
       <DeptHero status={status} deadline={d.cycle.deadline} tab={tab} onTab={setTab}
         readiness={{ study: Object.values(study).filter((x) => x.trim()).length, studyOf: 5, vision: !!plan.vision.trim(), objectives: plan.objectives.length, risks: plan.risks.length, lines: all.length }} />
+      <ApprovalTracker status={status} history={d.history || []} submittedAt={d.submission?.submittedAt || null} deadline={d.cycle.deadline} revision={d.submission?.revision || 1} />
       {status === 'returned' && d.submission?.reviewComment && <div className="demo" role="note"><b>{T('Returned for changes: ', 'أعيدت للتعديل: ')}</b>{d.submission.reviewComment}</div>}
 
       <div className="an-kpis sm">
@@ -687,6 +689,48 @@ function DeptReport({ meta, dept, deptName, cycleName, lines, positions, months,
         <ul>{notes.map((x, i) => <li key={i} className={x.tone}><b aria-hidden="true">{x.tone === 'ok' ? '✓' : x.tone === 'warn' ? '!' : 'i'}</b><span>{x.t}</span></li>)}</ul>
       </section>
     </div>
+  );
+}
+
+/**
+ * Where the department's request for approval stands: a four-stop line (prepare, submit, review, approved), how long it
+ * has been waiting, and the full trail of who did what and when, including the owner's comments when it came back.
+ */
+function ApprovalTracker({ status, history, submittedAt, deadline, revision }: { status: Status; history: HistoryEvent[]; submittedAt: string | null; deadline: string | null; revision: number }) {
+  const { lang } = useI18n();
+  const T = (en: string, ar: string) => (lang === 'ar' ? ar : en);
+  const [open, setOpen] = useState(false);
+  const stage = status === 'approved' ? 3 : status === 'submitted' ? 2 : status === 'returned' ? 1 : status === 'draft' ? 1 : 0;
+  const stops = [T('Prepare', 'الإعداد'), T('Submitted', 'التسليم'), T('Owner review', 'مراجعة المالك'), T('Approved', 'الاعتماد')];
+  const waited = submittedAt ? Math.max(0, Math.floor((Date.now() - Date.parse(submittedAt)) / 86400000)) : null;
+  const when = (iso: string) => new Date(iso).toLocaleString(lang === 'ar' ? 'ar-SA' : 'en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const label: Record<string, string> = {
+    saved: T('Draft saved', 'حُفظت المسودة'), submitted: T('Submitted for approval', 'سُلّمت للاعتماد'), approved: T('Approved', 'اعتُمدت'),
+    returned: T('Returned for changes', 'أُعيدت للتعديل'), revision_started: T('New revision started', 'بدأت مراجعة جديدة')
+  };
+  const role: Record<string, string> = { owner: T('owner', 'المالك'), finance: T('finance', 'المالية'), contributor: T('department head', 'مدير الإدارة'), viewer: T('viewer', 'مشاهد') };
+  // consecutive draft saves are folded into one row so the trail stays readable
+  const rows = history.filter((h, i) => !(h.action === 'saved' && history[i + 1]?.action === 'saved')).slice().reverse();
+  const nowText = status === 'approved' ? T('Approved. It is part of the company budget.', 'معتمدة وأصبحت جزءًا من ميزانية الشركة.')
+    : status === 'submitted' ? T(`Waiting for the owner${waited !== null ? ` · ${waited === 0 ? 'sent today' : waited === 1 ? '1 day' : waited + ' days'}` : ''}`, `بانتظار المالك${waited !== null ? ` · ${waited === 0 ? 'أُرسلت اليوم' : waited + ' يوم'}` : ''}`)
+    : status === 'returned' ? T('Returned: read the comment, change, then submit again.', 'أُعيدت: اقرأ الملاحظة وعدّل ثم سلّم مجددًا.')
+    : status === 'draft' ? T('Draft: submit when it is ready.', 'مسودة: سلّمها عندما تكون جاهزة.') : T('Not started yet.', 'لم تبدأ بعد.');
+  return (
+    <section className={'card at ' + status}>
+      <div className="at-top">
+        <div><h2>{T('Approval request', 'طلب الاعتماد')}{revision > 1 ? <span className="pill" style={{ marginInlineStart: 8 }}>{T('revision ', 'مراجعة ')}{revision}</span> : null}</h2>
+          <p className="sub">{nowText}{deadline && status !== 'approved' ? ' · ' + T('due ', 'الموعد ') + date(deadline, lang, { day: 'numeric', month: 'long' }) : ''}</p></div>
+        {rows.length > 0 && <button type="button" className="link" onClick={() => setOpen(!open)} aria-expanded={open}>{open ? T('Hide history', 'إخفاء السجل') : T(`History (${rows.length})`, `السجل (${rows.length})`)}</button>}
+      </div>
+      <ol className="at-line">{stops.map((x, i) => <li key={x} className={(i < stage ? 'done' : i === stage ? 'on' : '') + (status === 'returned' && i === 2 ? ' back' : '')}><i aria-hidden="true">{i < stage || (i === 3 && status === 'approved') ? '✓' : i + 1}</i><span>{x}</span></li>)}</ol>
+      {open && <ul className="at-log">{rows.map((h, i) => (
+        <li key={i} className={h.action}>
+          <span className="at-dot" aria-hidden="true" />
+          <div><b>{label[h.action] || h.action}</b>{h.revision ? <span className="sub"> · {T('revision ', 'مراجعة ')}{h.revision}</span> : null}
+            <div className="sub">{when(h.at)}{h.by ? ` · ${h.by.name} (${role[h.by.role] || h.by.role})` : ''}{h.total ? ` · ${m(h.total)}` : ''}{h.lines ? ` · ${h.lines} ${T('lines', 'سطرًا')}` : ''}</div>
+            {h.comment && <blockquote className="at-comment">{h.comment}</blockquote>}</div>
+        </li>))}</ul>}
+    </section>
   );
 }
 
