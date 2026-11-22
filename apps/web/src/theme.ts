@@ -51,6 +51,13 @@ export function onSystemScheme(cb: (s: Scheme) => void): () => void {
   mq.addEventListener('change', h);
   return () => mq.removeEventListener('change', h);
 }
+/** Auto (follow the device), Day or Night, as chosen on this device. */
+export type SchemeChoice = 'auto' | Scheme;
+export function schemeChoice(): SchemeChoice { const a = document.documentElement.getAttribute('data-scheme'); return a === 'dark' || a === 'light' ? a : 'auto'; }
+export function chooseScheme(c: SchemeChoice) {
+  if (c === 'auto') { document.documentElement.removeAttribute('data-scheme'); try { localStorage.removeItem(SCHEME_KEY); } catch { /* private mode */ } }
+  else setScheme(c);
+}
 export function setScheme(s: Scheme) {
   document.documentElement.setAttribute('data-scheme', s);
   try { localStorage.setItem(SCHEME_KEY, s); } catch { /* private mode */ }

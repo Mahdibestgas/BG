@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api, ApiError } from '../api';
 import { useI18n } from '../i18n';
 import { firebaseIdToken } from '../firebase';
+import { SchemeSwitch } from '../ui/SchemeSwitch';
 
 function Art() {
   const { lang } = useI18n();
@@ -138,6 +139,7 @@ export function SignIn({ onDone }: { onDone: () => void }) {
     <div className="auth">
       <Art />
       <section className="auth-form">
+        <SchemeSwitch className="auth-sw" />
         <form id="signin-form" onSubmit={submit} noValidate>
           <div className="auth-hi"><h1>{step2 ? (lang === 'ar' ? 'تحقق من هويتك' : 'Confirm it is you') : (lang === 'ar' ? 'أهلًا بعودتك' : 'Welcome back')}</h1>
             <p className="sub">{step2 ? '' : (lang === 'ar' ? 'سجّل الدخول إلى خطة' : 'Sign in to Khitta')}</p></div>

@@ -1,3 +1,4 @@
+import { SchemeSwitch } from './SchemeSwitch';
 import { useEffect, useState, type ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useSession } from '../App';
@@ -16,7 +17,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const where = useLocation().pathname;
   const [scheme, setSch] = useState<Scheme>(currentScheme);
   useEffect(() => onSystemScheme(setSch), []);
-  const flip = () => { const n: Scheme = scheme === 'dark' ? 'light' : 'dark'; setScheme(n); setSch(n); };
+  void scheme;
   const name = lang === 'ar' && s.tenant.nameAr ? s.tenant.nameAr : s.tenant.name;
   const L = (en: string, ar: string) => (lang === 'ar' ? ar : en);
   const fin = s.me.role === 'owner' || s.me.role === 'finance';
@@ -64,7 +65,7 @@ export function Shell({ children }: { children: ReactNode }) {
           )}
           <div className="side-row">
             <button type="button" onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}>{t('lang')}</button>
-            <button type="button" onClick={flip} aria-pressed={scheme === 'dark'}>{scheme === 'dark' ? t('schemeLight') : t('schemeDark')}</button>
+            <SchemeSwitch />
           </div>
           <div className="acct">
             <NavLink className="who" to="/account" title={(lang === 'ar' ? 'حسابي: ' : 'My account: ') + s.me.account.email}>{s.me.account.name}</NavLink>

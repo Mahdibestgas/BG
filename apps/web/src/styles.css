@@ -1062,3 +1062,26 @@ main { position: relative; }
 .co-kh { gap: 12px; align-items: center; padding: 4px 4px 16px; display: flex; }
 .co-kh .co-emblem { border-radius: 12px; box-shadow: 0 0 0 1px rgba(255, 255, 255, .16); }
 .co-kh .co-words b { display: block; font-size: 14.5px; line-height: 1.25; }
+
+/* day / night / auto switch */
+.scheme-sw { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .12); }
+.scheme-sw button { width: 32px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 999px; background: transparent; color: inherit; cursor: pointer; opacity: .7; transition: background var(--m-fast) var(--m-ease), opacity var(--m-fast); }
+.scheme-sw button:hover { opacity: 1; }
+.scheme-sw button[aria-checked="true"] { background: #F4F1E8; color: #121813; opacity: 1; }
+.scheme-sw svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.scheme-sw svg .fill { fill: currentColor; stroke: none; }
+.scheme-sw button:last-child svg path { fill: currentColor; stroke: none; }
+.side-row { align-items: center; }
+.auth-form { flex-direction: column; gap: 14px; }
+.auth-sw { color: #F4F1E8; align-self: center; }
+/* the sign-in card at night */
+:root[data-scheme="dark"] .auth-form form { background: #1A211C; color: #ECEFEE; box-shadow: 0 50px 100px -40px rgba(0, 0, 0, .9), 0 0 0 1px rgba(255, 255, 255, .08); }
+:root[data-scheme="dark"] .auth-form form .field input { background: #121813; border-color: #2E3A31; color: #ECEFEE; }
+:root[data-scheme="dark"] .auth-hi h1 { color: #F4F1E8; }
+:root[data-scheme="dark"] .auth-go { background: #9CC8A0 !important; color: #121813 !important; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-scheme="light"]) .auth-form form { background: #1A211C; color: #ECEFEE; box-shadow: 0 50px 100px -40px rgba(0, 0, 0, .9), 0 0 0 1px rgba(255, 255, 255, .08); }
+  :root:not([data-scheme="light"]) .auth-form form .field input { background: #121813; border-color: #2E3A31; color: #ECEFEE; }
+  :root:not([data-scheme="light"]) .auth-hi h1 { color: #F4F1E8; }
+  :root:not([data-scheme="light"]) .auth-go { background: #9CC8A0 !important; color: #121813 !important; }
+}
