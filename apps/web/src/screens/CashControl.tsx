@@ -36,11 +36,12 @@ export function CashControl() {
     if (!f) return null;
     const N = f.weeks.length, L = (id: string) => f.l2[id] || new Array(N).fill(0), tot = (id: string) => sum(L(id));
     const rec = f.l1.receipts, pay = f.l1.payments, close = f.l1.closing;
-    const days = planDays(f.weeks), weeksN = days / 7, years = days / 365;
+    const days = planDays(f.weeks), weeksN = days / 7, years = days / 365, avgPayW = sum(pay) / weeksN;
     const R = sum(rec), P = sum(pay), avgPay = P / weeksN, avgRec = R / weeksN;
     const buf = f.headline.minBuffer || 0, low = f.headline.lowestCash;
     // idle cash: what sits above the buffer plus the next 4 weeks' payments, on average over the plan
-    const idle = close.map((c, i) => Math.max(0, c - buf - sum(pay.slice(i + 1, i + 5))));
+    // near the end of the plan fewer than four weeks remain: the missing weeks count at the average payment, so idle cash is not overstated
+    const idle = close.map((c, i) => { const next = pay.slice(i + 1, i + 5); return Math.max(0, c - buf - sum(next) - (4 - next.length) * avgPayW); });
     const avgIdle = sum(idle) / Math.max(1, N);
     // weeks of cover at the lowest point
     const cover = avgPay ? low / avgPay : 0;
@@ -67,7 +68,7 @@ export function CashControl() {
   // 4. gas supplier credit
   if (A.gas > 0) recs.push({ tone: 'med', area: T('Working capital', 'رأس المال العامل'), t: T('Each extra week of credit from gas suppliers frees cash', 'كل أسبوع ائتمان إضافي من موردي الغاز يحرر نقدًا'), b: T(`Gas purchases average ${m(A.gasWeekly)} a week (${pct(A.gas / Math.max(1, A.R))} of receipts). Moving from cash-on-delivery to 7 days' credit releases about one week of purchases, once, for good.`, `مشتريات الغاز بمتوسط ${m(A.gasWeekly)} أسبوعيًا (${pct(A.gas / Math.max(1, A.R))} من المقبوضات). الانتقال من الدفع عند التسليم إلى ائتمان 7 أيام يحرر مشتريات أسبوع مرة واحدة دائمًا.`), effect: A.gasWeekly, kind: 'cash', effectNote: T(`cash released once; worth ${m(A.gasWeekly * r)} a year`, `نقد يُحرر مرة واحدة؛ قيمته ${m(A.gasWeekly * r)} سنويًا`), action: T('Negotiate 7–14 days with the main supplier against a bank guarantee if needed.', 'فاوض المورد الرئيسي على 7–14 يومًا مقابل ضمان بنكي عند الحاجة.') });
   // 5. POS fees
-  if (A.pos > 0 && A.posFees > 0) { const feeRate = A.posFees / A.pos; recs.push({ tone: feeRate > 0.008 ? 'med' : 'ok', area: T('Collection cost', 'تكلفة التحصيل'), t: T(`Card collection costs ${pct(feeRate, 2)} of card receipts`, `تحصيل البطاقات يكلف ${pct(feeRate, 2)} من مقبوضاتها`), b: T(`POS fees are ${m(A.posFees)} on ${m(A.pos)} of card receipts. Every 0.10% cut in the rate saves the amount on the right over the plan.`, `رسوم نقاط البيع ${m(A.posFees)} على ${m(A.pos)} من مقبوضات البطاقات. كل خفض 0.10% في النسبة يوفر المبلغ الظاهر خلال الخطة.`), effect: A.pos * 0.001, effectNote: T('saved per 0.10% cut', 'وفر لكل خفض 0.10%'), action: T('Ask two banks for mada/POS quotes; the volume supports a lower rate.', 'اطلب عروض مدى/نقاط بيع من بنكين؛ الحجم يبرر نسبة أقل.') }); }
+  if (A.pos > 0 && A.posFees > 0) { const feeRate = A.posFees / A.pos; recs.push({ tone: feeRate > 0.008 ? 'med' : 'ok', area: T('Collection cost', 'تكلفة التحصيل'), t: T(`Card collection costs ${pct(feeRate, 2)} of card receipts`, `تحصيل البطاقات يكلف ${pct(feeRate, 2)} من مقبوضاتها`), b: T(`POS fees and card returns are ${m(A.posFees)} on ${m(A.pos)} of card receipts (returns inflate the rate a little). Every 0.10% cut in the rate saves the amount on the right over the plan.`, `رسوم نقاط البيع ومرتجعات البطاقات ${m(A.posFees)} على ${m(A.pos)} من مقبوضات البطاقات (المرتجعات ترفع النسبة قليلًا). كل خفض 0.10% في النسبة يوفر المبلغ الظاهر خلال الخطة.`), effect: A.pos * 0.001, effectNote: T('saved per 0.10% cut', 'وفر لكل خفض 0.10%'), action: T('Ask two banks for mada/POS quotes; the volume supports a lower rate.', 'اطلب عروض مدى/نقاط بيع من بنكين؛ الحجم يبرر نسبة أقل.') }); }
   // 6. cash handling
   if (A.cash > 0) recs.push({ tone: 'med', area: T('Cash control', 'رقابة النقد'), t: T('Branch cash is a large share of receipts', 'نقد الفروع حصة كبيرة من المقبوضات'), b: T(`${m(A.cash)} (${pct(A.cash / Math.max(1, A.R))} of receipts) is cash banked from branches. Cash held overnight is the main loss risk in distribution.`, `${m(A.cash)} (${pct(A.cash / Math.max(1, A.R))} من المقبوضات) نقد مودع من الفروع. النقد المحتفظ به ليلًا هو خطر الخسارة الرئيسي في التوزيع.`), effect: null, effectNote: '', action: T('Daily deposits, sales-to-deposit reconciliation every day, surprise counts monthly, and a push toward POS.', 'إيداع يومي ومطابقة المبيعات مع الإيداع يوميًا وجرد مفاجئ شهريًا وتشجيع الدفع بالبطاقة.') });
   // 7. bank charges
