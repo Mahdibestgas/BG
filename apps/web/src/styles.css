@@ -1013,7 +1013,7 @@ main { position: relative; }
 
 /* ---- overview v3: the control-room hero. Ink band, closing cash as the headline, a glowing line that draws itself ---- */
 .ov-hero { position: relative; overflow: hidden; margin-top: 4px; border-radius: 28px; padding: clamp(20px, 2.6vw, 34px) clamp(18px, 2.6vw, 34px) 18px; color: #F4F1E8;
-  background-color: #121813; background-image: radial-gradient(55% 70% at 0% 0%, rgba(77, 109, 81, .55), transparent 70%), radial-gradient(45% 60% at 100% 100%, rgba(77, 109, 81, .3), transparent 70%), radial-gradient(rgba(255, 255, 255, .06) 1px, transparent 1.2px); background-size: auto, auto, 22px 22px;
+  background-color: #121813; background-image: radial-gradient(55% 70% at 0% 0%, color-mix(in oklab, var(--brand) 55%, transparent), transparent 70%), radial-gradient(45% 60% at 100% 100%, color-mix(in oklab, var(--brand) 30%, transparent), transparent 70%), radial-gradient(rgba(255, 255, 255, .06) 1px, transparent 1.2px); background-size: auto, auto, 22px 22px;
   box-shadow: 0 30px 60px -36px rgba(18, 24, 19, .9); animation: v3-up .6s var(--m-ease) both; }
 .ovh-top { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
 .ovh-eyebrow { font-size: 13px; color: rgba(244, 241, 232, .66); }
@@ -1090,9 +1090,9 @@ main { position: relative; }
 .side { --sd-bg: #FBFAF6; --sd-ink: #1F2720; --sd-muted: #5A635B; --sd-line: #E4E0D4; --sd-hover: rgba(31, 39, 32, .06); --sd-active: color-mix(in oklab, var(--brand) 14%, #FFFFFF); --sd-accent: var(--brand);
   background: var(--sd-bg); color: var(--sd-ink); border-inline-end: 1px solid var(--sd-line); scrollbar-color: rgba(31, 39, 32, .25) transparent; transition: background var(--m-std) var(--m-ease), color var(--m-std) var(--m-ease); }
 :root[data-scheme="dark"] .side { --sd-bg: #121813; --sd-ink: #ECEFEE; --sd-muted: #A4AEAB; --sd-line: rgba(255, 255, 255, .1); --sd-hover: rgba(255, 255, 255, .07); --sd-active: rgba(156, 200, 160, .16); --sd-accent: #9CC8A0;
-  background-image: radial-gradient(80% 40% at 0% 0%, rgba(77, 109, 81, .35), transparent 70%); scrollbar-color: rgba(255, 255, 255, .3) transparent; }
+  background-image: radial-gradient(80% 40% at 0% 0%, color-mix(in oklab, var(--brand) 35%, transparent), transparent 70%); scrollbar-color: rgba(255, 255, 255, .3) transparent; }
 @media (prefers-color-scheme: dark) { :root:not([data-scheme="light"]) .side { --sd-bg: #121813; --sd-ink: #ECEFEE; --sd-muted: #A4AEAB; --sd-line: rgba(255, 255, 255, .1); --sd-hover: rgba(255, 255, 255, .07); --sd-active: rgba(156, 200, 160, .16); --sd-accent: #9CC8A0;
-  background-image: radial-gradient(80% 40% at 0% 0%, rgba(77, 109, 81, .35), transparent 70%); scrollbar-color: rgba(255, 255, 255, .3) transparent; } }
+  background-image: radial-gradient(80% 40% at 0% 0%, color-mix(in oklab, var(--brand) 35%, transparent), transparent 70%); scrollbar-color: rgba(255, 255, 255, .3) transparent; } }
 .side .co { border-bottom-color: var(--sd-line); }
 .side .co span, .side .co-words span, .side .nav-h { color: var(--sd-muted); opacity: 1; }
 .side .nav a:hover { background: var(--sd-hover); }
@@ -1134,7 +1134,7 @@ main { position: relative; }
 :root[data-scheme="light"] .auth-form form { box-shadow: 0 40px 80px -40px rgba(31, 39, 32, .45), 0 0 0 1px #E4E0D4; background: #FFFFFF; }
 :root[data-scheme="light"] .auth-emblem.kh { box-shadow: 0 8px 20px -10px rgba(31, 39, 32, .5); }
 /* overview hero by day */
-:root[data-scheme="light"] .ov-hero { color: #1F2720; background-color: #FFFFFF; background-image: radial-gradient(55% 70% at 0% 0%, rgba(77, 109, 81, .14), transparent 70%), radial-gradient(45% 60% at 100% 100%, rgba(77, 109, 81, .08), transparent 70%), radial-gradient(rgba(31, 39, 32, .07) 1px, transparent 1.2px); box-shadow: 0 1px 2px rgba(31, 39, 32, .05), 0 30px 60px -40px rgba(31, 39, 32, .35); border: 1px solid #E4E0D4; }
+:root[data-scheme="light"] .ov-hero { color: #1F2720; background-color: #FFFFFF; background-image: radial-gradient(55% 70% at 0% 0%, color-mix(in oklab, var(--brand) 14%, transparent), transparent 70%), radial-gradient(45% 60% at 100% 100%, color-mix(in oklab, var(--brand) 8%, transparent), transparent 70%), radial-gradient(rgba(31, 39, 32, .07) 1px, transparent 1.2px); box-shadow: 0 1px 2px rgba(31, 39, 32, .05), 0 30px 60px -40px rgba(31, 39, 32, .35); border: 1px solid #E4E0D4; }
 :root[data-scheme="light"] .ovh-eyebrow, :root[data-scheme="light"] .ovh-stat .l, :root[data-scheme="light"] .ovh-stat .s { color: #5A635B; }
 :root[data-scheme="light"] .ovh-big small { color: #8A928B; }
 :root[data-scheme="light"] .ovh-delta.up { background: #E3F1E5; color: #2F7A3A; } .ovh-delta.down { background: #FBE5E0; color: #B0442F; }
@@ -1142,7 +1142,7 @@ main { position: relative; }
 :root[data-scheme="light"] .ovh-seg button { color: #5A635B; } .ovh-seg button:hover { color: #1F2720; }
 :root[data-scheme="light"] .ovh-seg button[aria-pressed="true"] { background: #1F2720; color: #F4F1E8; }
 :root[data-scheme="light"] .ovh-grid { stroke: rgba(31, 39, 32, .09); }
-:root[data-scheme="light"] .ovh-now { fill: rgba(77, 109, 81, .07); }
+:root[data-scheme="light"] .ovh-now { fill: color-mix(in oklab, var(--brand) 7%, transparent); }
 :root[data-scheme="light"] .ovh-line { stroke: #3F6B46; filter: none; }
 :root[data-scheme="light"] .ovh-zero { stroke: rgba(31, 39, 32, .16); }
 :root[data-scheme="light"] .ovh-net.up { fill: #4FA45C; } .ovh-net.down { fill: #D9654C; }
@@ -1157,8 +1157,8 @@ main { position: relative; }
 :root[data-scheme="light"] .ovh-stat:hover { background: rgba(31, 39, 32, .035); }
 :root[data-scheme="light"] .ovh-stat.t-pay b { color: #B0442F; } .ovh-stat.t-rec b { color: #2F7A3A; }
 /* analysis header and the season cards by day */
-:root[data-scheme="light"] .an-hero, :root[data-scheme="light"] .ov-seasoncard, :root[data-scheme="light"] .an-season-head { color: #1F2720; background: #FFFFFF; background-image: radial-gradient(70% 90% at 100% 0%, rgba(77, 109, 81, .12), transparent 65%); border: 1px solid #E4E0D4; }
-:root[data-scheme="light"] .an-hero .an-eyebrow.light, :root[data-scheme="light"] .ov-seasoncard .an-eyebrow.light, :root[data-scheme="light"] .an-season-head .an-eyebrow.light { color: #4D6D51; }
+:root[data-scheme="light"] .an-hero, :root[data-scheme="light"] .ov-seasoncard, :root[data-scheme="light"] .an-season-head { color: #1F2720; background: #FFFFFF; background-image: radial-gradient(70% 90% at 100% 0%, color-mix(in oklab, var(--brand) 12%, transparent), transparent 65%); border: 1px solid #E4E0D4; }
+:root[data-scheme="light"] .an-hero .an-eyebrow.light, :root[data-scheme="light"] .ov-seasoncard .an-eyebrow.light, :root[data-scheme="light"] .an-season-head .an-eyebrow.light { color: var(--brand); }
 @media (prefers-color-scheme: light) {
 /* login by day: warm paper, ink type, the same drawing in deep green */
 :root:not([data-scheme="dark"]) .auth { background-color: #F4F1E8; background-image: radial-gradient(45% 55% at 8% 5%, rgba(77, 109, 81, .18), transparent 70%), radial-gradient(40% 50% at 78% 45%, rgba(77, 109, 81, .10), transparent 70%), radial-gradient(rgba(31, 39, 32, .08) 1px, transparent 1.2px); }
@@ -1180,7 +1180,7 @@ main { position: relative; }
 :root:not([data-scheme="dark"]) .auth-form form { box-shadow: 0 40px 80px -40px rgba(31, 39, 32, .45), 0 0 0 1px #E4E0D4; background: #FFFFFF; }
 :root:not([data-scheme="dark"]) .auth-emblem.kh { box-shadow: 0 8px 20px -10px rgba(31, 39, 32, .5); }
 /* overview hero by day */
-:root:not([data-scheme="dark"]) .ov-hero { color: #1F2720; background-color: #FFFFFF; background-image: radial-gradient(55% 70% at 0% 0%, rgba(77, 109, 81, .14), transparent 70%), radial-gradient(45% 60% at 100% 100%, rgba(77, 109, 81, .08), transparent 70%), radial-gradient(rgba(31, 39, 32, .07) 1px, transparent 1.2px); box-shadow: 0 1px 2px rgba(31, 39, 32, .05), 0 30px 60px -40px rgba(31, 39, 32, .35); border: 1px solid #E4E0D4; }
+:root:not([data-scheme="dark"]) .ov-hero { color: #1F2720; background-color: #FFFFFF; background-image: radial-gradient(55% 70% at 0% 0%, color-mix(in oklab, var(--brand) 14%, transparent), transparent 70%), radial-gradient(45% 60% at 100% 100%, color-mix(in oklab, var(--brand) 8%, transparent), transparent 70%), radial-gradient(rgba(31, 39, 32, .07) 1px, transparent 1.2px); box-shadow: 0 1px 2px rgba(31, 39, 32, .05), 0 30px 60px -40px rgba(31, 39, 32, .35); border: 1px solid #E4E0D4; }
 :root:not([data-scheme="dark"]) .ovh-eyebrow, :root:not([data-scheme="dark"]) .ovh-stat .l, :root:not([data-scheme="dark"]) .ovh-stat .s { color: #5A635B; }
 :root:not([data-scheme="dark"]) .ovh-big small { color: #8A928B; }
 :root:not([data-scheme="dark"]) .ovh-delta.up { background: #E3F1E5; color: #2F7A3A; } .ovh-delta.down { background: #FBE5E0; color: #B0442F; }
@@ -1188,7 +1188,7 @@ main { position: relative; }
 :root:not([data-scheme="dark"]) .ovh-seg button { color: #5A635B; } .ovh-seg button:hover { color: #1F2720; }
 :root:not([data-scheme="dark"]) .ovh-seg button[aria-pressed="true"] { background: #1F2720; color: #F4F1E8; }
 :root:not([data-scheme="dark"]) .ovh-grid { stroke: rgba(31, 39, 32, .09); }
-:root:not([data-scheme="dark"]) .ovh-now { fill: rgba(77, 109, 81, .07); }
+:root:not([data-scheme="dark"]) .ovh-now { fill: color-mix(in oklab, var(--brand) 7%, transparent); }
 :root:not([data-scheme="dark"]) .ovh-line { stroke: #3F6B46; filter: none; }
 :root:not([data-scheme="dark"]) .ovh-zero { stroke: rgba(31, 39, 32, .16); }
 :root:not([data-scheme="dark"]) .ovh-net.up { fill: #4FA45C; } .ovh-net.down { fill: #D9654C; }
@@ -1203,14 +1203,14 @@ main { position: relative; }
 :root:not([data-scheme="dark"]) .ovh-stat:hover { background: rgba(31, 39, 32, .035); }
 :root:not([data-scheme="dark"]) .ovh-stat.t-pay b { color: #B0442F; } .ovh-stat.t-rec b { color: #2F7A3A; }
 /* analysis header and the season cards by day */
-:root:not([data-scheme="dark"]) .an-hero, :root:not([data-scheme="dark"]) .ov-seasoncard, :root:not([data-scheme="dark"]) .an-season-head { color: #1F2720; background: #FFFFFF; background-image: radial-gradient(70% 90% at 100% 0%, rgba(77, 109, 81, .12), transparent 65%); border: 1px solid #E4E0D4; }
-:root:not([data-scheme="dark"]) .an-hero .an-eyebrow.light, :root:not([data-scheme="dark"]) .ov-seasoncard .an-eyebrow.light, :root:not([data-scheme="dark"]) .an-season-head .an-eyebrow.light { color: #4D6D51; }
+:root:not([data-scheme="dark"]) .an-hero, :root:not([data-scheme="dark"]) .ov-seasoncard, :root:not([data-scheme="dark"]) .an-season-head { color: #1F2720; background: #FFFFFF; background-image: radial-gradient(70% 90% at 100% 0%, color-mix(in oklab, var(--brand) 12%, transparent), transparent 65%); border: 1px solid #E4E0D4; }
+:root:not([data-scheme="dark"]) .an-hero .an-eyebrow.light, :root:not([data-scheme="dark"]) .ov-seasoncard .an-eyebrow.light, :root:not([data-scheme="dark"]) .an-season-head .an-eyebrow.light { color: var(--brand); }
 }
 /* night: the analysis header and season cards use the same ink as the overview hero */
-:root[data-scheme="dark"] .an-hero, :root[data-scheme="dark"] .ov-seasoncard, :root[data-scheme="dark"] .an-season-head { background-color: #121813; background-image: radial-gradient(70% 90% at 100% 0%, rgba(77, 109, 81, .4), transparent 65%); color: #F4F1E8; }
+:root[data-scheme="dark"] .an-hero, :root[data-scheme="dark"] .ov-seasoncard, :root[data-scheme="dark"] .an-season-head { background-color: #121813; background-image: radial-gradient(70% 90% at 100% 0%, color-mix(in oklab, var(--brand) 40%, transparent), transparent 65%); color: #F4F1E8; }
 @media (prefers-color-scheme: dark) {
 /* night: the analysis header and season cards use the same ink as the overview hero */
-:root:not([data-scheme="light"]) .an-hero, :root:not([data-scheme="light"]) .ov-seasoncard, :root:not([data-scheme="light"]) .an-season-head { background-color: #121813; background-image: radial-gradient(70% 90% at 100% 0%, rgba(77, 109, 81, .4), transparent 65%); color: #F4F1E8; }
+:root:not([data-scheme="light"]) .an-hero, :root:not([data-scheme="light"]) .ov-seasoncard, :root:not([data-scheme="light"]) .an-season-head { background-color: #121813; background-image: radial-gradient(70% 90% at 100% 0%, color-mix(in oklab, var(--brand) 40%, transparent), transparent 65%); color: #F4F1E8; }
 }
 /* the five steps by day: dark type on paper, the lit step in deep green */
 @keyframes v3-step-day { 0%, 18% { color: #FFFFFF; background: #3F6B46; border-color: #3F6B46; } 24%, 100% { color: #5A635B; background: transparent; border-color: #D9D4C7; } }
