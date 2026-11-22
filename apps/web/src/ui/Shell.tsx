@@ -37,6 +37,12 @@ export function Shell({ children }: { children: ReactNode }) {
             <div className="mark"><img src={'/api/tenant/logo?v=' + encodeURIComponent(s.logoVersion)} alt="" /></div>
             <div><b>{name}</b><span>{t('product')}</span></div>
           </div>
+        ) : name.toLowerCase() !== 'best gas' ? (
+          // a company without its own logo: the Khitta mark and the company name
+          <div className="co co-kh">
+            <img className="co-emblem" src="/khitta-mark.svg" alt="" />
+            <div className="co-words"><b>{name}</b><span>{t('product')}</span></div>
+          </div>
         ) : (
           // Best Gas's own identity: the round emblem and the bilingual wordmark (light version, made for dark grounds)
           <div className="co co-bg">

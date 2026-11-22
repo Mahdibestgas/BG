@@ -17,3 +17,8 @@ createRoot(document.getElementById('root')!).render(
     </I18nProvider>
   </React.StrictMode>
 );
+
+// installable app: register the service worker in production builds only
+if ('serviceWorker' in navigator && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => undefined); });
+}

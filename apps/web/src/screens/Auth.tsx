@@ -16,8 +16,8 @@ function Art() {
   return (
     <section className="auth-art v3">
       <div className="auth-brand">
-        <img src="/bestgas-logo.png" alt="" className="auth-emblem" />
-        <img src="/bestgas-wordmark-light.png" alt="Best Gas Carrier Co. · شركة الناقل الأفضل للغاز" className="auth-wordmark" />
+        <img src="/khitta-mark.svg" alt="" className="auth-emblem kh" />
+        <span className="kh-word"><b>Khitta</b><span className="kh-ar">خطة</span></span>
       </div>
       <div className="v3-body">
         <h2 className="v3-claim">{lang === 'ar' ? <>كل ريال مخطط له،<br /><em>وكل شهر محسوب.</em></> : <>Every riyal planned.<br /><em>Every month accounted for.</em></>}</h2>
@@ -37,7 +37,7 @@ function Art() {
         </div>
         <ol className="v3-flow">{steps.map((x, i) => <li key={x} style={{ ['--i' as any]: i }}><b>{i + 1}</b>{x}</li>)}</ol>
       </div>
-      <span className="auth-foot">{T('Best Gas Carrier Co. · Kingdom of Saudi Arabia', 'شركة الناقل الأفضل للغاز · المملكة العربية السعودية')}</span>
+      <span className="auth-foot">{T('Khitta · budgeting and cash planning for growing companies', 'خطة · الميزانيات والتخطيط النقدي للشركات النامية')}</span>
     </section>
   );
 }
@@ -140,14 +140,14 @@ export function SignIn({ onDone }: { onDone: () => void }) {
       <section className="auth-form">
         <form id="signin-form" onSubmit={submit} noValidate>
           <div className="auth-hi"><h1>{step2 ? (lang === 'ar' ? 'تحقق من هويتك' : 'Confirm it is you') : (lang === 'ar' ? 'أهلًا بعودتك' : 'Welcome back')}</h1>
-            <p className="sub">{step2 ? '' : (lang === 'ar' ? 'سجّل الدخول إلى ميزانيات بست غاز' : 'Sign in to Best Gas Budgeting')}</p></div>
+            <p className="sub">{step2 ? '' : (lang === 'ar' ? 'سجّل الدخول إلى خطة' : 'Sign in to Khitta')}</p></div>
           {step2 ? <>
             {!verified && <VerifyHead kind={step2} sentAt={sentAt} onResend={async () => { setMsg(''); try { await api('POST', '/api/auth/login', creds); } catch (x) { if (x instanceof ApiError && x.code === 'email_code_required') { setSentAt(Date.now()); setMsg(''); } else setMsg(err(x instanceof ApiError ? x.code : 'network')); } }} />}
             <CodeBoxes busy={busy} verified={verified} onCode={(c) => { const f = document.getElementById('signin-form') as HTMLFormElement | null; const i = f?.querySelector('input[name=code]') as HTMLInputElement | null; if (i) i.value = c; f?.requestSubmit(); }} allowLetters={step2 === 'app'} errorKey={errKey} />
             <input type="hidden" name="code" />
             <button type="button" className="link" onClick={() => { setStep2(null); setMsg(''); }}>{lang === 'ar' ? 'رجوع' : 'Back'}</button>
           </> : <>
-          <label className="field ic"><span>{t('email')}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14v10H3zM3 6l7 5 7-5" /></svg><input name="email" type="email" autoComplete="username" required placeholder="name@bestgas.sa" /></label>
+          <label className="field ic"><span>{t('email')}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14v10H3zM3 6l7 5 7-5" /></svg><input name="email" type="email" autoComplete="username" required placeholder="name@company.com" /></label>
           <label className="field ic"><span>{t('password')}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 9h10v8H5zM7 9V6a3 3 0 016 0v3" /></svg>
             <input name="pw" type={showPw ? 'text' : 'password'} autoComplete="current-password" required onKeyUp={(e) => setCaps(e.getModifierState && e.getModifierState('CapsLock'))} />
             <button type="button" className="pw-eye" onClick={() => setShowPw(!showPw)} aria-label={showPw ? (lang === 'ar' ? 'إخفاء كلمة المرور' : 'Hide password') : (lang === 'ar' ? 'إظهار كلمة المرور' : 'Show password')} aria-pressed={showPw}>{showPw ? (lang === 'ar' ? 'إخفاء' : 'Hide') : (lang === 'ar' ? 'إظهار' : 'Show')}</button></label>

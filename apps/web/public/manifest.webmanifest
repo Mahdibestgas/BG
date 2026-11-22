@@ -1,0 +1,26 @@
+{
+  "name": "Khitta · خطة",
+  "short_name": "Khitta",
+  "description": "Department budgets, a 13-month cash forecast and budget against actual.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "any",
+  "background_color": "#121813",
+  "theme_color": "#121813",
+  "lang": "en",
+  "dir": "auto",
+  "categories": ["finance", "business", "productivity"],
+  "icons": [
+    { "src": "/khitta-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/khitta-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/khitta-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/khitta-mark.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Overview", "url": "/", "icons": [{ "src": "/khitta-192.png", "sizes": "192x192" }] },
+    { "name": "Department budgets", "url": "/budget", "icons": [{ "src": "/khitta-192.png", "sizes": "192x192" }] }
+  ]
+}

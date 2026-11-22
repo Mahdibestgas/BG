@@ -1,6 +1,6 @@
 // Outgoing email through Resend (https://resend.com). Configure in the host's environment:
 //   RESEND_API_KEY  the API key from the Resend dashboard (never in the repository)
-//   MAIL_FROM       e.g. "Best Gas Budgeting <no-reply@bestgas.sa>" once the domain is verified in Resend;
+//   MAIL_FROM       e.g. "Khitta <no-reply@yourdomain.com>" once the domain is verified in Resend;
 //                   without it Resend's test sender is used, which only delivers to the Resend account's own email.
 import { AppError } from './http';
 
@@ -12,7 +12,7 @@ export async function sendMail(to: string, subject: string, text: string, html?:
   const r = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { authorization: 'Bearer ' + key, 'content-type': 'application/json' },
-    body: JSON.stringify({ from: process.env.MAIL_FROM || 'Best Gas Budgeting <onboarding@resend.dev>', to: [to], subject, text, ...(html ? { html } : {}) }),
+    body: JSON.stringify({ from: process.env.MAIL_FROM || 'Khitta <onboarding@resend.dev>', to: [to], subject, text, ...(html ? { html } : {}) }),
     signal: AbortSignal.timeout(10_000)
   }).catch(() => null);
   if (!r || !r.ok) throw new AppError('email_send_failed', 503);

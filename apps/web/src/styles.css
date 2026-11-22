@@ -1053,3 +1053,12 @@ main { position: relative; }
 .ov .grid.ov-two > .card, .ov .grid.ov-main > .card { border-radius: 22px; }
 @media (max-width: 900px) { .ovh-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ovh-stat { border-inline-start: 0; padding-inline-start: 2px; } .ovh-x { font-size: 15px; } }
 @media (prefers-reduced-motion: reduce) { .ov-hero, .ovh-area, .ovh-net, .ovh-low, .ovh-low-t { animation: none !important; opacity: 1; } .ovh-line { animation: none; stroke-dashoffset: 0; } }
+
+/* Khitta identity: the mark and the bilingual name, on the login and in the menu for companies without a logo */
+.auth-emblem.kh { border-radius: 14px; box-shadow: 0 0 0 1px rgba(255, 255, 255, .14), 0 10px 24px -10px rgba(0, 0, 0, .8); }
+.kh-word { display: inline-flex; align-items: baseline; gap: 10px; color: #F4F1E8; }
+.kh-word b { font-size: 26px; font-weight: 700; letter-spacing: -.02em; }
+.kh-word .kh-ar { font-size: 22px; font-weight: 600; color: #9CC8A0; }
+.co-kh { gap: 12px; align-items: center; padding: 4px 4px 16px; display: flex; }
+.co-kh .co-emblem { border-radius: 12px; box-shadow: 0 0 0 1px rgba(255, 255, 255, .16); }
+.co-kh .co-words b { display: block; font-size: 14.5px; line-height: 1.25; }

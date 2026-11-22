@@ -31,7 +31,7 @@ export function Companies() {
           <label className="field"><span>{T('Name in English', 'الاسم بالإنجليزية')}</span><input value={f.company} maxLength={120} onChange={(x) => setF({ ...f, company: x.target.value })} /></label>
           <label className="field"><span>{T('Name in Arabic', 'الاسم بالعربية')}</span><input dir="rtl" value={f.companyAr} maxLength={120} onChange={(x) => setF({ ...f, companyAr: x.target.value })} /></label>
           <label className="field"><span>{T('Kind of business', 'نوع النشاط')}</span><select value={f.template} onChange={(x) => setF({ ...f, template: x.target.value })}>
-            <option value="lpg-distribution">{T('Gas distribution (like Best Gas)', 'توزيع الغاز (مثل بست غاز)')}</option>
+            <option value="lpg-distribution">{T('Gas distribution (LPG)', 'توزيع الغاز المسال')}</option>
             <option value="generic">{T('Any other company', 'أي شركة أخرى')}</option></select></label>
         </div>
         <div className="actions"><button type="button" className="btn" disabled={busy || !f.company.trim()} onClick={create}>{T('Create the company', 'إنشاء الشركة')}</button>{e && <span className="msg err">{e}</span>}</div>

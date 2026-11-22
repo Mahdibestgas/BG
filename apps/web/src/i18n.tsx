@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 const EN = {
-  product: 'Best Gas Budgeting', tagline: 'Study, plan and budget every department, then follow the cash and the actuals month by month.',
+  product: 'Khitta', tagline: 'Study, plan and budget every department, then follow the cash and the actuals month by month.',
   signIn: 'Sign in', signingIn: 'Signing in…', signUp: 'Create a company account', email: 'Work email', password: 'Password',
   noAccount: 'New company?', haveAccount: 'Already have an account?', company: 'Company name', companyAr: 'Company name in Arabic (optional)',
   yourName: 'Your name', industry: 'Industry template', tplLpg: 'LPG distribution (drivers: branches, cylinders, supplier terms)', tplGeneric: 'Any business (opening balances and scheduled items)',
@@ -45,7 +45,7 @@ const EN = {
 };
 type Key = keyof typeof EN;
 const AR: Record<Key, string> = {
-  product: 'ميزانيات بست غاز', tagline: 'دراسة كل إدارة وخطتها وميزانيتها، ثم متابعة النقد والفعلي شهرًا بشهر.',
+  product: 'خطة', tagline: 'دراسة كل إدارة وخطتها وميزانيتها، ثم متابعة النقد والفعلي شهرًا بشهر.',
   signIn: 'تسجيل الدخول', signingIn: 'جارٍ الدخول…', signUp: 'إنشاء حساب لشركتك', email: 'البريد الإلكتروني للعمل', password: 'كلمة المرور',
   noAccount: 'شركة جديدة؟', haveAccount: 'لديك حساب؟', company: 'اسم الشركة', companyAr: 'اسم الشركة بالعربية (اختياري)',
   yourName: 'اسمك', industry: 'قالب النشاط', tplLpg: 'توزيع الغاز المسال (الفروع، الأسطوانات، شروط المورد)', tplGeneric: 'أي نشاط (الأرصدة الافتتاحية والبنود المجدولة)',

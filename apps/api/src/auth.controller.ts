@@ -226,7 +226,7 @@ export class AuthController {
     if (await this.db.account.findUnique({ where: { email: em }, select: { id: true } })) throw new AppError('email_taken', 409);
     const upd = await this.db.account.update({ where: { id: acc.id }, data: { email: em, sessionEpoch: { increment: 1 } } });
     await this.db.inTenant(ctx.tenantId, (tx) => tx.auditEntry.create({ data: { tenantId: ctx.tenantId, actorId: acc.id, action: 'email_changed', changes: { from: acc.email, to: em } } }));
-    if (mailReady()) { const n = noticeEmail('Your sign-in email was changed', `The sign-in email of your Best Gas Budgeting account is now ${em}. If you did not do this, contact your system owner at once.`, 'تغيّر بريد الدخول', `أصبح بريد الدخول لحسابك في ميزانيات بست غاز ${em}. إن لم تفعل ذلك فتواصل مع مالك النظام فورًا.`); await sendMail(acc.email, 'Your Best Gas sign-in email was changed', n.text, n.html).catch(() => {}); }
+    if (mailReady()) { const n = noticeEmail('Your sign-in email was changed', `The sign-in email of your Khitta account is now ${em}. If you did not do this, contact your system owner at once.`, 'تغيّر بريد الدخول', `أصبح بريد الدخول لحسابك في خطة ${em}. إن لم تفعل ذلك فتواصل مع مالك النظام فورًا.`); await sendMail(acc.email, 'Your Best Gas sign-in email was changed', n.text, n.html).catch(() => {}); }
     this.setCookie(res, signSession({ sub: acc.id, tid: ctx.tenantId, role: ctx.role, ep: upd.sessionEpoch }));
     return { ok: true, email: em };
   }
@@ -239,7 +239,7 @@ export class AuthController {
     const on = b?.enabled === true;
     if (on) {
       if (!mailReady()) throw new AppError('email_not_configured', 503);
-      const n = noticeEmail('Email sign-in codes are on', 'From now on, after your password, Best Gas Budgeting emails you a six-digit code to finish signing in.', 'تفعيل رمز الدخول بالبريد', 'من الآن يصلك رمز من ستة أرقام بالبريد بعد كلمة المرور لإكمال الدخول.');
+      const n = noticeEmail('Email sign-in codes are on', 'From now on, after your password, Khitta emails you a six-digit code to finish signing in.', 'تفعيل رمز الدخول بالبريد', 'من الآن يصلك رمز من ستة أرقام بالبريد بعد كلمة المرور لإكمال الدخول.');
       await sendMail(acc.email, 'Email sign-in codes are on', n.text, n.html);
     }
     await this.db.account.update({ where: { id: acc.id }, data: { emailOtpEnabled: on, emailOtpHash: null, emailOtpExpires: null } });
