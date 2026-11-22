@@ -64,10 +64,22 @@ export class AuthController {
       SELECT * FROM account_memberships(${accountId}::uuid)`;
   }
 
+  /**
+   * Public sign-up. On the live server it is open only for the very first account (the system owner); after that
+   * only the system owner adds companies, from the Companies page. CF13_SIGNUP=off closes it, =open opens it to all.
+   */
+  private async signupOpen() {
+    const v = process.env.CF13_SIGNUP;
+    if (v === 'off') return false;
+    if (v === 'open') return true;
+    if (process.env.NODE_ENV !== 'production') return true;
+    return (await this.db.account.count()) === 0;
+  }
+
   /** A new company signs up: its own space, its owner, and a starter plan of demo figures. */
   @Public() @Post('signup')
   async signup(@Body() b: any, @Res({ passthrough: true }) res: Response) {
-    if (process.env.CF13_SIGNUP === 'off') throw new AppError('signup_closed', 403);   // production: companies are created by the platform owner
+    if (!(await this.signupOpen())) throw new AppError('signup_closed', 403);
     const company = str(b?.company, 'company', 120);
     const companyAr = str(b?.companyAr, 'companyAr', 120, false) || null;
     const name = str(b?.name, 'name', 120);
@@ -125,9 +137,9 @@ export class AuthController {
 
   /** What the sign-in screen needs to know: whether Firebase sign-in is switched on, and its public web config. */
   @Public() @Get('config')
-  config() {
+  async config() {
     const w = firebaseWebConfig();
-    return { ok: true, signup: process.env.CF13_SIGNUP !== 'off', firebase: w ? { enabled: true, config: w } : { enabled: false } };
+    return { ok: true, signup: await this.signupOpen(), firebase: w ? { enabled: true, config: w } : { enabled: false } };
   }
 
   /** Sign in with a Firebase ID token. Same session cookie, same audit entry, same company isolation as a password sign-in. */
