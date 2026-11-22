@@ -1216,3 +1216,23 @@ main { position: relative; }
 @keyframes v3-step-day { 0%, 18% { color: #FFFFFF; background: #3F6B46; border-color: #3F6B46; } 24%, 100% { color: #5A635B; background: transparent; border-color: #D9D4C7; } }
 :root[data-scheme="light"] .v3-flow li { animation-name: v3-step-day; }
 @media (prefers-color-scheme: light) { :root:not([data-scheme="dark"]) .v3-flow li { animation-name: v3-step-day; } }
+
+/* ---- inside a company, the dark ink and the accents come from the company's own colour (read from its logo) ---- */
+:root { --co-ink: color-mix(in oklab, var(--brand) 16%, #0D110E); --co-glow: color-mix(in oklab, var(--brand) 70%, transparent); --co-accent: color-mix(in oklab, var(--brand) 58%, #FFFFFF); }
+:root[data-scheme="dark"] .side { --sd-bg: var(--co-ink); --sd-accent: var(--co-accent); --sd-active: color-mix(in oklab, var(--brand) 30%, transparent); background-image: radial-gradient(80% 40% at 0% 0%, color-mix(in oklab, var(--brand) 45%, transparent), transparent 70%); }
+@media (prefers-color-scheme: dark) { :root:not([data-scheme="light"]) .side { --sd-bg: var(--co-ink); --sd-accent: var(--co-accent); --sd-active: color-mix(in oklab, var(--brand) 30%, transparent); background-image: radial-gradient(80% 40% at 0% 0%, color-mix(in oklab, var(--brand) 45%, transparent), transparent 70%); } }
+.side { --sd-active: color-mix(in oklab, var(--brand) 14%, #FFFFFF); --sd-accent: var(--brand); }
+/* overview hero: the company colour in the line, the glow and the ink */
+.ov-hero #ovh-a stop { stop-color: var(--co-accent); }
+.ovh-line { stroke: var(--co-accent); filter: drop-shadow(0 0 10px var(--co-glow)); }
+.ovh-seg button[aria-pressed="true"] { color: var(--co-ink); }
+:root[data-scheme="dark"] .ov-hero, :root[data-scheme="dark"] .an-hero, :root[data-scheme="dark"] .ov-seasoncard, :root[data-scheme="dark"] .an-season-head { background-color: var(--co-ink); background-image: radial-gradient(55% 70% at 0% 0%, color-mix(in oklab, var(--brand) 55%, transparent), transparent 70%), radial-gradient(rgba(255, 255, 255, .06) 1px, transparent 1.2px); background-size: auto, 22px 22px; }
+@media (prefers-color-scheme: dark) { :root:not([data-scheme="light"]) .ov-hero, :root:not([data-scheme="light"]) .an-hero, :root:not([data-scheme="light"]) .ov-seasoncard, :root:not([data-scheme="light"]) .an-season-head { background-color: var(--co-ink); background-image: radial-gradient(55% 70% at 0% 0%, color-mix(in oklab, var(--brand) 55%, transparent), transparent 70%), radial-gradient(rgba(255, 255, 255, .06) 1px, transparent 1.2px); background-size: auto, 22px 22px; } }
+:root[data-scheme="light"] .ov-hero #ovh-a stop { stop-color: var(--brand); }
+:root[data-scheme="light"] .ovh-line { stroke: var(--brand); filter: none; }
+:root[data-scheme="light"] .ov-hero { background-image: radial-gradient(55% 70% at 0% 0%, color-mix(in oklab, var(--brand) 16%, transparent), transparent 70%), radial-gradient(rgba(31, 39, 32, .07) 1px, transparent 1.2px); background-size: auto, 22px 22px; }
+@media (prefers-color-scheme: light) {
+  :root:not([data-scheme="dark"]) .ov-hero #ovh-a stop { stop-color: var(--brand); }
+  :root:not([data-scheme="dark"]) .ovh-line { stroke: var(--brand); filter: none; }
+  :root:not([data-scheme="dark"]) .ov-hero { background-image: radial-gradient(55% 70% at 0% 0%, color-mix(in oklab, var(--brand) 16%, transparent), transparent 70%), radial-gradient(rgba(31, 39, 32, .07) 1px, transparent 1.2px); background-size: auto, 22px 22px; }
+}
