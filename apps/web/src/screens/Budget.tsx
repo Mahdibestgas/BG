@@ -277,7 +277,7 @@ export function DeptBudget() {
   const T = (en: string, ar: string) => (lang === 'ar' ? ar : en);
   const { meta } = useBudgetMeta();
   const [d, setD] = useState<DeptData | null>(null), [lines, setLines] = useState<Line[]>([]), [positions, setPositions] = useState<Position[]>([]);
-  const [study, setStudy] = useState<Study>(EMPTY_STUDY), [plan, setPlan] = useState<DeptPlan>(EMPTY_PLAN), [tab, setTab] = useState<'study' | 'plan' | 'budget'>('study');
+  const [study, setStudy] = useState<Study>(EMPTY_STUDY), [plan, setPlan] = useState<DeptPlan>(EMPTY_PLAN), [tab, setTab] = useState<'study' | 'plan' | 'budget' | 'report'>('study');
   const [lv, setLv] = useState<'cards' | 'table'>(() => { try { return localStorage.getItem('cf13.lineView') === 'table' ? 'table' : 'cards'; } catch { return 'cards'; } });
   const pickLv = (v: 'cards' | 'table') => { setLv(v); try { localStorage.setItem('cf13.lineView', v); } catch { /* private window */ } };
   const [dirty, setDirty] = useState(false), [busy, setBusy] = useState(false), [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null), [comment, setComment] = useState('');
@@ -358,7 +358,7 @@ export function DeptBudget() {
       </div>
 
       <div className="seg bgt-tabs" role="tablist" aria-label={T('Steps', 'الخطوات')}>
-        {([['study', T('1 Study', '1 الدراسة'), `${Object.values(study).filter((x) => x.trim()).length}/5`], ['plan', T('2 Plan', '2 الخطة'), T(`${plan.objectives.length} objectives`, `${plan.objectives.length} أهداف`)], ['budget', T('3 Budget', '3 الميزانية'), T(`${all.length} lines`, `${all.length} سطرًا`)]] as Array<['study' | 'plan' | 'budget', string, string]>).map(([k, l, c]) => <button key={k} type="button" role="tab" aria-selected={tab === k} aria-pressed={tab === k} onClick={() => setTab(k)}>{l} <small className="tab-count">{c}</small></button>)}
+        {([['study', T('1 Study', '1 الدراسة'), `${Object.values(study).filter((x) => x.trim()).length}/5`], ['plan', T('2 Plan', '2 الخطة'), T(`${plan.objectives.length} objectives`, `${plan.objectives.length} أهداف`)], ['budget', T('3 Budget', '3 الميزانية'), T(`${all.length} lines`, `${all.length} سطرًا`)], ['report', T('Report', 'التقرير'), m(sum(all.map((l) => sum(l.amounts))))]] as Array<['study' | 'plan' | 'budget' | 'report', string, string]>).map(([k, l, c]) => <button key={k} type="button" role="tab" aria-selected={tab === k} aria-pressed={tab === k} onClick={() => setTab(k)}>{l} <small className="tab-count">{c}</small></button>)}
       </div>
       {tab === 'study' && <StudyEditor study={study} editable={editable} onChange={(x) => { setStudy(x); touch(); }} />}
       {tab === 'plan' && <PlanEditor plan={plan} months={d.cycle.monthKeys} editable={editable} onChange={(x) => { setPlan(x); touch(); }} />}
@@ -433,6 +433,7 @@ export function DeptBudget() {
         {status === 'submitted' && !isOwner && <p className="sub" style={{ marginTop: 10 }}>{T('Waiting for the owner. It cannot change until it is approved or returned.', 'بانتظار المالك. لا يمكن تعديلها حتى تُعتمد أو تُعاد.')}</p>}
       </section>
       {tab === 'budget' && all.length > 0 && <Summary meta={meta} lines={all} months={d.cycle.monthKeys} regionName={regionName} />}
+      {tab === 'report' && <DeptReport meta={meta} dept={dept} deptName={txt(depName)} cycleName={d.cycle.name} lines={all} positions={positions} months={d.cycle.monthKeys} regionName={regionName} study={study} plan={plan} status={status} />}
     </div>
   );
 }
@@ -554,6 +555,138 @@ function LineCard({ line: l, item: it, groups, regions, months, editable, guide,
       </div>}
       {open && <div className="lc-months">{months.map((k, j) => <label key={k}><span>{monthLabel(k, lang)}</span><NumInput disabled={!editable} label={monthLabel(k, lang)} value={vals[j]} onValue={(v) => setOne(j, v ?? 0)} /></label>)}</div>}
     </article>
+  );
+}
+
+/**
+ * The department report: everything the head needs to read and defend their own budget, built only from their own
+ * lines (so it never shows another department). Totals, the shape of the year, items against the bank guide,
+ * cities, quarters, people, and a list of things worth a second look. Downloads as CSV and prints cleanly.
+ */
+function DeptReport({ meta, dept, deptName, cycleName, lines, positions, months, regionName, study, plan, status }: {
+  meta: Meta; dept: string; deptName: string; cycleName: string; lines: Line[]; positions: Position[]; months: string[]; regionName: (id: string) => string;
+  study: Study; plan: DeptPlan; status: Status;
+}) {
+  const { lang, txt } = useI18n();
+  const T = (en: string, ar: string) => (lang === 'ar' ? ar : en);
+  const n = months.length, item = (id: string) => meta.pack.items.find((i) => i.id === id);
+  const kindOf = (l: Line) => item(l.item)?.kind;
+  const monthTot = months.map((_, k) => sum(lines.map((l) => l.amounts[k] || 0)));
+  const total = sum(monthTot), avg = total / Math.max(1, n);
+  const byKind = (k: Kind | 'cost') => sum(lines.filter((l) => (k === 'cost' ? !['revenue', 'capex'].includes(kindOf(l) || '') : kindOf(l) === k)).map((l) => sum(l.amounts)));
+  const rev = byKind('revenue'), capex = byKind('capex'), cost = byKind('cost');
+  const peak = monthTot.indexOf(Math.max(...monthTot)), low = monthTot.indexOf(Math.min(...monthTot));
+  const heads = positions.reduce((t, p) => t + p.headcount, 0), saudi = positions.filter((p) => p.saudi).reduce((t, p) => t + p.headcount, 0);
+  // per item
+  const items = [...new Set(lines.map((l) => l.item))].map((id) => {
+    const a = months.map((_, k) => sum(lines.filter((l) => l.item === id).map((l) => l.amounts[k] || 0)));
+    const t = sum(a), g = meta.guidance?.items[id];
+    return { id, name: txt(item(id)?.name) || id, group: txt(item(id)?.group), kind: item(id)?.kind, a, t, avg: t / Math.max(1, n), min: Math.min(...a), max: Math.max(...a), guide: g, diff: g ? (t / Math.max(1, n) - g) / g : null };
+  }).sort((x, y) => y.t - x.t);
+  // groups and cities
+  const groups = new Map<string, number>(); items.forEach((i) => groups.set(i.group, (groups.get(i.group) || 0) + i.t));
+  const cities = new Map<string, number>(); lines.forEach((l) => cities.set(l.region, (cities.get(l.region) || 0) + sum(l.amounts)));
+  const quarters = [0, 1, 2, 3].map((q) => sum(monthTot.slice(q * 3, q * 3 + 3))).filter((_, q) => q * 3 < n);
+  // guide items this department has not budgeted at all
+  const guideMissing = Object.entries(meta.guidance?.items || {}).filter(([id, v]) => v > 0 && item(id)?.dept === dept && !items.some((i) => i.id === id)).map(([id, v]) => ({ id, name: txt(item(id)?.name), v }));
+  // things worth a second look
+  const notes: Array<{ tone: 'warn' | 'info' | 'ok'; t: string }> = [];
+  items.filter((i) => i.diff !== null && Math.abs(i.diff) > 0.1).forEach((i) => notes.push({ tone: 'warn', t: T(`${i.name}: ${i.diff! > 0 ? '+' : ''}${Math.round(i.diff! * 100)}% against the bank guide (${m(i.avg)} vs ${m(i.guide!)} a month). Explain the change in the study.`, `${i.name}: ${i.diff! > 0 ? '+' : ''}${Math.round(i.diff! * 100)}% مقابل إرشاد البنك (${m(i.avg)} مقابل ${m(i.guide!)} شهريًا). اشرح السبب في الدراسة.`) }));
+  guideMissing.forEach((g) => notes.push({ tone: 'warn', t: T(`${g.name} is not in your budget, but the bank shows about ${m(g.v)} a month.`, `${g.name} غير موجود في ميزانيتك، بينما يُظهر البنك حوالي ${m(g.v)} شهريًا.`) }));
+  items.filter((i) => i.t === 0).forEach((i) => notes.push({ tone: 'warn', t: T(`${i.name} has a line with no amounts.`, `${i.name} له سطر بلا مبالغ.`) }));
+  monthTot.forEach((v, k) => { if (k && monthTot[k - 1] > 0 && Math.abs(v - monthTot[k - 1]) / monthTot[k - 1] > 0.3) notes.push({ tone: 'info', t: T(`${monthLabel(months[k], lang)} moves ${v > monthTot[k - 1] ? 'up' : 'down'} ${Math.round(Math.abs(v - monthTot[k - 1]) / monthTot[k - 1] * 100)}% from the month before.`, `${monthLabel(months[k], lang)} يتغير ${Math.round(Math.abs(v - monthTot[k - 1]) / monthTot[k - 1] * 100)}% عن الشهر السابق.`) }); });
+  const studyDone = Object.values(study).filter((x) => x.trim()).length;
+  if (studyDone < 3) notes.push({ tone: 'warn', t: T(`The study has ${studyDone} of 5 sections. The owner reads it before approving.`, `الدراسة فيها ${studyDone} من 5 أقسام. يقرؤها المالك قبل الاعتماد.`) });
+  if (!plan.objectives.length) notes.push({ tone: 'warn', t: T('No objectives yet. Add at least one with its KPI.', 'لا أهداف بعد. أضف هدفًا واحدًا على الأقل مع مؤشره.') });
+  if (!notes.length) notes.push({ tone: 'ok', t: T('Nothing stands out: every item is close to the guide and the months move smoothly.', 'لا شيء لافت: كل البنود قريبة من الإرشاد والأشهر متدرجة.') });
+
+  const csv = () => {
+    const q = (v: string | number) => (typeof v === 'number' ? String(Math.round(v * 100) / 100) : '"' + v.replace(/"/g, '""') + '"');
+    const rows: Array<Array<string | number>> = [[T('Item', 'البند'), T('Group', 'المجموعة'), ...months.map((k) => monthLabel(k, lang)), T('Total', 'الإجمالي'), T('Average a month', 'المتوسط الشهري'), T('Guide a month', 'الإرشاد الشهري')]];
+    items.forEach((i) => rows.push([i.name, i.group, ...i.a, i.t, i.avg, i.guide ?? '']));
+    rows.push([T('Total', 'الإجمالي'), '', ...monthTot, total, avg, '']);
+    rows.push([]); rows.push([T('City', 'المدينة'), T('Total', 'الإجمالي')]);
+    [...cities.entries()].forEach(([r, v]) => rows.push([regionName(r), v]));
+    const blob = new Blob(['\ufeff' + rows.map((r) => r.map(q).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${cycleName} - ${deptName}.csv`.replace(/[\\/:*?"<>|]/g, '-'); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+
+  if (!lines.length) return <section className="card" style={{ marginTop: 20 }}><h2>{T('Report', 'التقرير')}</h2><p className="empty">{T('The report fills in as you add budget lines in step 3.', 'يمتلئ التقرير عند إضافة بنود الميزانية في الخطوة 3.')}</p></section>;
+  return (
+    <div className="dr">
+      <section className="card dr-head">
+        <div><span className="an-eyebrow">{cycleName} · {T('department report', 'تقرير الإدارة')}</span><h2>{deptName}</h2>
+          <p className="sub">{monthLabel(months[0], lang)} – {monthLabel(months[n - 1], lang)} · {T('SAR, excluding VAT', 'ريال، بدون ضريبة')} · {txt(STATUS[status])}</p></div>
+        <div className="actions no-print" style={{ marginTop: 0 }}>
+          <button type="button" className="btn ghost" onClick={csv}>{T('Download CSV', 'تنزيل CSV')}</button>
+          <button type="button" className="btn ghost" onClick={() => window.print()}>{T('Print or save as PDF', 'طباعة أو حفظ PDF')}</button>
+        </div>
+      </section>
+
+      <div className="an-kpis dr-kpis">
+        <div className="an-kpi t-brand"><span className="l">{T('Total for the year', 'إجمالي السنة')}</span><span className="v num"><CountUp value={total} format={(v) => m(v)} /></span><span className="s">{items.length} {T('items', 'بندًا')} · {lines.length} {T('lines', 'سطرًا')}</span></div>
+        <div className="an-kpi t-brand"><span className="l">{T('Average a month', 'المتوسط الشهري')}</span><span className="v num">{m(avg)}</span><span className="s">{T('peak ', 'الأعلى ')}{monthLabel(months[peak], lang)} · {T('lowest ', 'الأدنى ')}{monthLabel(months[low], lang)}</span></div>
+        {rev > 0 && <div className="an-kpi t-rec"><span className="l">{T('Revenue', 'الإيرادات')}</span><span className="v num">{m(rev)}</span><span className="s">{m(rev / n)} {T('a month', 'شهريًا')}</span></div>}
+        <div className="an-kpi t-pay"><span className="l">{T('Running costs', 'المصاريف التشغيلية')}</span><span className="v num">{m(cost)}</span><span className="s">{total ? Math.round((cost / total) * 100) : 0}% {T('of the total', 'من الإجمالي')}</span></div>
+        {capex > 0 && <div className="an-kpi t-brand"><span className="l">{T('Capex', 'الرأسمالية')}</span><span className="v num">{m(capex)}</span><span className="s">{T('one-off investment', 'استثمار لمرة واحدة')}</span></div>}
+        {heads > 0 && <div className="an-kpi t-brand"><span className="l">{T('Headcount', 'عدد الموظفين')}</span><span className="v num">{heads}</span><span className="s">{T('Saudi ', 'سعودي ')}{saudi} · {Math.round((saudi / heads) * 100)}%</span></div>}
+      </div>
+
+      <section className="card" style={{ marginTop: 20 }}>
+        <h2>{T('Month by month', 'شهرًا بشهر')}</h2>
+        <p className="sub">{T('The shape of the year. The line is the running total.', 'شكل السنة. الخط هو الإجمالي التراكمي.')}</p>
+        <MonthColumns months={months.map((k) => monthLabel(k, lang))} revenue={months.map((_, k) => sum(lines.filter((l) => kindOf(l) === 'revenue').map((l) => l.amounts[k] || 0)))} costs={months.map((_, k) => sum(lines.filter((l) => kindOf(l) !== 'revenue').map((l) => l.amounts[k] || 0)))}
+          line={monthTot.map((_, k) => sum(monthTot.slice(0, k + 1)) / Math.max(1, k + 1))} labels={{ revenue: T('Revenue', 'الإيرادات'), costs: T('Costs and capex', 'التكاليف والرأسمالية'), line: T('Average so far', 'المتوسط حتى الشهر') }} />
+        <div className="dr-quarters">{quarters.map((v, q) => <div key={q}><span>{T(`Quarter ${q + 1}`, `الربع ${q + 1}`)}</span><b className="num">{m(v)}</b><i style={{ width: (total ? (v / Math.max(...quarters)) * 100 : 0) + '%' }} /></div>)}</div>
+      </section>
+
+      <div className="grid dr-two" style={{ marginTop: 20 }}>
+        <section className="card">
+          <h2>{T('Where it goes', 'أين يذهب')}</h2>
+          <Donut parts={[...groups.entries()].sort((a, b) => b[1] - a[1]).map(([g, v], i) => ({ id: g, label: g, value: v, color: deptColor(i) }))} center={m(total)} sub={T('by group', 'حسب المجموعة')} />
+        </section>
+        <section className="card">
+          <h2>{T('By city', 'حسب المدينة')}</h2>
+          <HBars rows={[...cities.entries()].sort((a, b) => b[1] - a[1]).map(([r, v]) => ({ id: r, label: regionName(r), a: v }))} labels={{ a: T('Total for the year', 'إجمالي السنة') }} />
+        </section>
+      </div>
+
+      {items.some((i) => i.guide) && <section className="card" style={{ marginTop: 20 }}>
+        <h2>{T('Against the bank guide', 'مقابل إرشاد البنك')}</h2>
+        <p className="sub">{meta.guidance?.source}{meta.guidance?.period ? ' · ' + meta.guidance.period : ''} · {T('your average a month next to the history', 'متوسطك الشهري بجانب التاريخي')}</p>
+        <HBars rows={items.filter((i) => i.guide).map((i) => ({ id: i.id, label: i.name, a: i.avg, b: i.guide }))} labels={{ a: T('Your average a month', 'متوسطك الشهري'), b: T('Bank guide a month', 'إرشاد البنك الشهري') }} />
+      </section>}
+
+      <section className="card" style={{ marginTop: 20 }}>
+        <h2>{T('Item by item', 'بندًا ببند')}</h2>
+        <div className="khz-scroll"><table className="tbl dr-tbl">
+          <thead><tr><th>{T('Item', 'البند')}</th><th className="n">{T('Total', 'الإجمالي')}</th><th className="n">{T('Share', 'النسبة')}</th><th className="n">{T('A month', 'شهريًا')}</th><th className="n">{T('Lowest – highest month', 'أدنى – أعلى شهر')}</th><th className="n">{T('Guide a month', 'الإرشاد')}</th><th className="n">{T('Difference', 'الفرق')}</th></tr></thead>
+          <tbody>{items.map((i) => <tr key={i.id}>
+            <td><b>{i.name}</b><div className="sub">{i.group}{i.kind ? ' · ' + txt(KIND_NAMES[i.kind]) : ''}</div></td>
+            <td className="n num">{acc(i.t)}</td>
+            <td className="n"><span className="dr-share"><i style={{ width: (total ? (i.t / total) * 100 : 0) + '%' }} /></span>{total ? ((i.t / total) * 100).toFixed(1) : '0'}%</td>
+            <td className="n num">{acc(i.avg)}</td>
+            <td className="n num sub">{acc(i.min)} – {acc(i.max)}</td>
+            <td className="n num">{i.guide ? acc(i.guide) : '–'}</td>
+            <td className={'n num ' + (i.diff !== null && Math.abs(i.diff) > 0.1 ? 'warn-t' : '')}>{i.diff === null ? '–' : (i.diff > 0 ? '+' : '') + Math.round(i.diff * 100) + '%'}</td>
+          </tr>)}
+            <tr className="tot"><td>{T('Total', 'الإجمالي')}</td><td className="n num">{acc(total)}</td><td className="n">100%</td><td className="n num">{acc(avg)}</td><td /><td /><td /></tr>
+          </tbody></table></div>
+      </section>
+
+      {positions.length > 0 && <section className="card" style={{ marginTop: 20 }}>
+        <h2>{T('People', 'الموظفون')}</h2>
+        <div className="khz-scroll"><table className="tbl dr-tbl">
+          <thead><tr><th>{T('Position', 'الوظيفة')}</th><th>{T('City', 'المدينة')}</th><th className="n">{T('Headcount', 'العدد')}</th><th>{T('Saudi', 'سعودي')}</th><th>{T('Months', 'الأشهر')}</th></tr></thead>
+          <tbody>{positions.map((p, i) => <tr key={i}><td>{p.title || '–'}</td><td>{regionName(p.region)}</td><td className="n num">{p.headcount}</td><td>{p.saudi ? T('Yes', 'نعم') : T('No', 'لا')}</td><td>{monthLabel(months[p.from], lang)} – {monthLabel(months[p.to], lang)}</td></tr>)}</tbody>
+        </table></div>
+      </section>}
+
+      <section className="card dr-notes" style={{ marginTop: 20 }}>
+        <h2>{T('Worth a second look', 'يستحق مراجعة ثانية')}</h2>
+        <ul>{notes.map((x, i) => <li key={i} className={x.tone}><b aria-hidden="true">{x.tone === 'ok' ? '✓' : x.tone === 'warn' ? '!' : 'i'}</b><span>{x.t}</span></li>)}</ul>
+      </section>
+    </div>
   );
 }
 

@@ -1236,3 +1236,26 @@ main { position: relative; }
   :root:not([data-scheme="dark"]) .ovh-line { stroke: var(--brand); filter: none; }
   :root:not([data-scheme="dark"]) .ov-hero { background-image: radial-gradient(55% 70% at 0% 0%, color-mix(in oklab, var(--brand) 16%, transparent), transparent 70%), radial-gradient(rgba(31, 39, 32, .07) 1px, transparent 1.2px); background-size: auto, 22px 22px; }
 }
+
+/* the department report */
+.dr-head { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; align-items: flex-start; margin-top: 20px; }
+.dr-head h2 { font-size: 26px; margin: 4px 0 2px; }
+.dr-kpis { margin-top: 16px; }
+.dr-quarters { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 16px; }
+.dr-quarters > div { position: relative; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px 14px; display: grid; gap: 2px; }
+.dr-quarters span { font-size: 12px; color: var(--ink2); } .dr-quarters b { font-size: 17px; }
+.dr-quarters i { position: absolute; inset-inline-start: 0; bottom: 0; height: 4px; background: var(--brand); border-radius: 0 4px 0 0; transition: width .6s var(--m-ease); }
+.dr-two { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.dr-tbl { width: 100%; } .dr-tbl td { vertical-align: top; }
+.dr-share { display: inline-block; width: 60px; height: 6px; border-radius: 6px; background: var(--sunken); margin-inline-end: 8px; vertical-align: middle; overflow: hidden; }
+.dr-share i { display: block; height: 100%; background: var(--brand); border-radius: 6px; }
+.dr-notes ul { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 8px; }
+.dr-notes li { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; background: var(--sunken); font-size: 13.5px; }
+.dr-notes li b { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; color: #fff; background: var(--ink2); }
+.dr-notes li.warn { background: var(--warn-bg); } .dr-notes li.warn b { background: var(--warn); }
+.dr-notes li.ok { background: var(--good-bg); } .dr-notes li.ok b { background: var(--good); }
+@media print {
+  .side, .bgt-tabs, .dept-hero, .no-print, .route-bar, .demo, .bgt-actions, .an-kpis.sm, .bgt > .head .pills { display: none !important; }
+  .app { display: block !important; } main { padding: 0 !important; }
+  .card { break-inside: avoid; box-shadow: none !important; border: 1px solid #ddd !important; }
+}
