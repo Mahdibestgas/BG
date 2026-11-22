@@ -49,7 +49,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <div className="co co-bg">
             <img className="co-emblem" src="/bestgas-logo.png" alt="" />
             <div className="co-words">
-              <img className="co-wordmark" src="/bestgas-wordmark-light.png" alt={name} />
+              <img className="co-wordmark wm-night" src="/bestgas-wordmark-light.png" alt={name} /><img className="co-wordmark wm-day" src="/bestgas-wordmark.png" alt="" aria-hidden="true" />
               <span>{t('product')}{name.toLowerCase() !== 'best gas' ? ' · ' + name : ''}</span>
             </div>
           </div>

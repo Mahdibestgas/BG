@@ -1085,3 +1085,134 @@ main { position: relative; }
   :root:not([data-scheme="light"]) .auth-hi h1 { color: #F4F1E8; }
   :root:not([data-scheme="light"]) .auth-go { background: #9CC8A0 !important; color: #121813 !important; }
 }
+
+/* ---- the sidebar follows day and night: paper by day, the control-room ink by night ---- */
+.side { --sd-bg: #FBFAF6; --sd-ink: #1F2720; --sd-muted: #5A635B; --sd-line: #E4E0D4; --sd-hover: rgba(31, 39, 32, .06); --sd-active: color-mix(in oklab, var(--brand) 14%, #FFFFFF); --sd-accent: var(--brand);
+  background: var(--sd-bg); color: var(--sd-ink); border-inline-end: 1px solid var(--sd-line); scrollbar-color: rgba(31, 39, 32, .25) transparent; transition: background var(--m-std) var(--m-ease), color var(--m-std) var(--m-ease); }
+:root[data-scheme="dark"] .side { --sd-bg: #121813; --sd-ink: #ECEFEE; --sd-muted: #A4AEAB; --sd-line: rgba(255, 255, 255, .1); --sd-hover: rgba(255, 255, 255, .07); --sd-active: rgba(156, 200, 160, .16); --sd-accent: #9CC8A0;
+  background-image: radial-gradient(80% 40% at 0% 0%, rgba(77, 109, 81, .35), transparent 70%); scrollbar-color: rgba(255, 255, 255, .3) transparent; }
+@media (prefers-color-scheme: dark) { :root:not([data-scheme="light"]) .side { --sd-bg: #121813; --sd-ink: #ECEFEE; --sd-muted: #A4AEAB; --sd-line: rgba(255, 255, 255, .1); --sd-hover: rgba(255, 255, 255, .07); --sd-active: rgba(156, 200, 160, .16); --sd-accent: #9CC8A0;
+  background-image: radial-gradient(80% 40% at 0% 0%, rgba(77, 109, 81, .35), transparent 70%); scrollbar-color: rgba(255, 255, 255, .3) transparent; } }
+.side .co { border-bottom-color: var(--sd-line); }
+.side .co span, .side .co-words span, .side .nav-h { color: var(--sd-muted); opacity: 1; }
+.side .nav a:hover { background: var(--sd-hover); }
+.side .nav a.active { background: var(--sd-active); color: var(--sd-ink); box-shadow: none; }
+.side .nav a.active::before { background: var(--sd-accent); }
+.side .nav a.active svg { color: var(--sd-accent); }
+.side .side-foot { border-top-color: var(--sd-line); }
+.side .side-foot select, .side .side-foot button { background: var(--sd-hover); border-color: var(--sd-line); }
+.side .side-foot select:hover, .side .side-foot button:hover { background: var(--sd-active); }
+.side::-webkit-scrollbar-thumb { background: color-mix(in oklab, var(--sd-ink) 28%, transparent); }
+.side .scheme-sw { background: var(--sd-hover); border-color: var(--sd-line); }
+.side .scheme-sw button { min-height: 0; border: 0; background: transparent; padding: 0; }
+.side .scheme-sw button[aria-checked="true"] { background: var(--sd-ink); color: var(--sd-bg); }
+.side .co-emblem, .side .co-kh .co-emblem { box-shadow: 0 0 0 1px var(--sd-line); }
+.side .co .mark { box-shadow: 0 0 0 1px var(--sd-line); }
+/* Best Gas wordmark: the dark version by day, the light one by night */
+.side .wm-night { display: none; } .side .wm-day { display: block; }
+:root[data-scheme="dark"] .side .wm-night { display: block; } :root[data-scheme="dark"] .side .wm-day { display: none; }
+@media (prefers-color-scheme: dark) { :root:not([data-scheme="light"]) .side .wm-night { display: block; } :root:not([data-scheme="light"]) .side .wm-day { display: none; } }
+
+/* ---- day and night across the whole system: every block that was always dark has a day version ---- */
+/* login by day: warm paper, ink type, the same drawing in deep green */
+:root[data-scheme="light"] .auth { background-color: #F4F1E8; background-image: radial-gradient(45% 55% at 8% 5%, rgba(77, 109, 81, .18), transparent 70%), radial-gradient(40% 50% at 78% 45%, rgba(77, 109, 81, .10), transparent 70%), radial-gradient(rgba(31, 39, 32, .08) 1px, transparent 1.2px); }
+:root[data-scheme="light"] .v3-claim, :root[data-scheme="light"] .kh-word { color: #1F2720; }
+:root[data-scheme="light"] .v3-claim em, :root[data-scheme="light"] .kh-word .kh-ar { color: #3F6B46; }
+:root[data-scheme="light"] .v3-lead, :root[data-scheme="light"] .v3 .auth-foot { color: #5A635B; }
+:root[data-scheme="light"] .v3-stage { background: #FFFFFF; border-color: #E4E0D4; box-shadow: 0 30px 60px -36px rgba(31, 39, 32, .35); }
+:root[data-scheme="light"] .v3-grid { stroke: rgba(31, 39, 32, .1); }
+:root[data-scheme="light"] .v3-bud { stroke: rgba(31, 39, 32, .4); }
+:root[data-scheme="light"] .v3-act { stroke: #3F6B46; filter: none; }
+:root[data-scheme="light"] .v3-dot { fill: #1F2720; } .v3-ping { stroke: #3F6B46; }
+:root[data-scheme="light"] .v3-chip { color: #1F2720; background: #FFFFFF; border-color: #E4E0D4; box-shadow: 0 12px 24px -14px rgba(31, 39, 32, .4); }
+:root[data-scheme="light"] .v3-chip i { background: #1F2720; }
+:root[data-scheme="light"] .v3-flow li { color: #5A635B; border-color: #D9D4C7; }
+:root[data-scheme="light"] .v3-flow b { background: rgba(31, 39, 32, .06); }
+:root[data-scheme="light"] .auth-sw { color: #1F2720; }
+:root[data-scheme="light"] .auth-sw.scheme-sw { background: rgba(31, 39, 32, .06); border-color: #D9D4C7; }
+:root[data-scheme="light"] .auth-sw.scheme-sw button[aria-checked="true"] { background: #1F2720; color: #F4F1E8; }
+:root[data-scheme="light"] .auth-form form { box-shadow: 0 40px 80px -40px rgba(31, 39, 32, .45), 0 0 0 1px #E4E0D4; background: #FFFFFF; }
+:root[data-scheme="light"] .auth-emblem.kh { box-shadow: 0 8px 20px -10px rgba(31, 39, 32, .5); }
+/* overview hero by day */
+:root[data-scheme="light"] .ov-hero { color: #1F2720; background-color: #FFFFFF; background-image: radial-gradient(55% 70% at 0% 0%, rgba(77, 109, 81, .14), transparent 70%), radial-gradient(45% 60% at 100% 100%, rgba(77, 109, 81, .08), transparent 70%), radial-gradient(rgba(31, 39, 32, .07) 1px, transparent 1.2px); box-shadow: 0 1px 2px rgba(31, 39, 32, .05), 0 30px 60px -40px rgba(31, 39, 32, .35); border: 1px solid #E4E0D4; }
+:root[data-scheme="light"] .ovh-eyebrow, :root[data-scheme="light"] .ovh-stat .l, :root[data-scheme="light"] .ovh-stat .s { color: #5A635B; }
+:root[data-scheme="light"] .ovh-big small { color: #8A928B; }
+:root[data-scheme="light"] .ovh-delta.up { background: #E3F1E5; color: #2F7A3A; } .ovh-delta.down { background: #FBE5E0; color: #B0442F; }
+:root[data-scheme="light"] .ovh-seg { background: rgba(31, 39, 32, .05); border-color: #E4E0D4; }
+:root[data-scheme="light"] .ovh-seg button { color: #5A635B; } .ovh-seg button:hover { color: #1F2720; }
+:root[data-scheme="light"] .ovh-seg button[aria-pressed="true"] { background: #1F2720; color: #F4F1E8; }
+:root[data-scheme="light"] .ovh-grid { stroke: rgba(31, 39, 32, .09); }
+:root[data-scheme="light"] .ovh-now { fill: rgba(77, 109, 81, .07); }
+:root[data-scheme="light"] .ovh-line { stroke: #3F6B46; filter: none; }
+:root[data-scheme="light"] .ovh-zero { stroke: rgba(31, 39, 32, .16); }
+:root[data-scheme="light"] .ovh-net.up { fill: #4FA45C; } .ovh-net.down { fill: #D9654C; }
+:root[data-scheme="light"] .ovh-buf { stroke: #B9822A; } .ovh-buf-t { fill: #8F5A0C; }
+:root[data-scheme="light"] .ovh-low { fill: #FFFFFF; stroke: #B9822A; } .ovh-low-t { fill: #8F5A0C; stroke: #FFFFFF; }
+:root[data-scheme="light"] .ovh-pt { fill: #1F2720; stroke: #FFFFFF; }
+:root[data-scheme="light"] .ovh-cross { stroke: rgba(31, 39, 32, .3); }
+:root[data-scheme="light"] .ovh-x { fill: #8A928B; } .ovh-x.on { fill: #1F2720; }
+:root[data-scheme="light"] .ovh-tip { background: #1F2720; color: #F4F1E8; } .ovh-tip > span { color: #A4AEAB; } .ovh-tip b { color: #F4F1E8; }
+:root[data-scheme="light"] .ovh-tip .up b { color: #9FE0A8; } .ovh-tip .down b { color: #F2A596; }
+:root[data-scheme="light"] .ovh-stats { border-top-color: #E4E0D4; } .ovh-stat { border-inline-start-color: #EEEAE0; }
+:root[data-scheme="light"] .ovh-stat:hover { background: rgba(31, 39, 32, .035); }
+:root[data-scheme="light"] .ovh-stat.t-pay b { color: #B0442F; } .ovh-stat.t-rec b { color: #2F7A3A; }
+/* analysis header and the season cards by day */
+:root[data-scheme="light"] .an-hero, :root[data-scheme="light"] .ov-seasoncard, :root[data-scheme="light"] .an-season-head { color: #1F2720; background: #FFFFFF; background-image: radial-gradient(70% 90% at 100% 0%, rgba(77, 109, 81, .12), transparent 65%); border: 1px solid #E4E0D4; }
+:root[data-scheme="light"] .an-hero .an-eyebrow.light, :root[data-scheme="light"] .ov-seasoncard .an-eyebrow.light, :root[data-scheme="light"] .an-season-head .an-eyebrow.light { color: #4D6D51; }
+@media (prefers-color-scheme: light) {
+/* login by day: warm paper, ink type, the same drawing in deep green */
+:root:not([data-scheme="dark"]) .auth { background-color: #F4F1E8; background-image: radial-gradient(45% 55% at 8% 5%, rgba(77, 109, 81, .18), transparent 70%), radial-gradient(40% 50% at 78% 45%, rgba(77, 109, 81, .10), transparent 70%), radial-gradient(rgba(31, 39, 32, .08) 1px, transparent 1.2px); }
+:root:not([data-scheme="dark"]) .v3-claim, :root:not([data-scheme="dark"]) .kh-word { color: #1F2720; }
+:root:not([data-scheme="dark"]) .v3-claim em, :root:not([data-scheme="dark"]) .kh-word .kh-ar { color: #3F6B46; }
+:root:not([data-scheme="dark"]) .v3-lead, :root:not([data-scheme="dark"]) .v3 .auth-foot { color: #5A635B; }
+:root:not([data-scheme="dark"]) .v3-stage { background: #FFFFFF; border-color: #E4E0D4; box-shadow: 0 30px 60px -36px rgba(31, 39, 32, .35); }
+:root:not([data-scheme="dark"]) .v3-grid { stroke: rgba(31, 39, 32, .1); }
+:root:not([data-scheme="dark"]) .v3-bud { stroke: rgba(31, 39, 32, .4); }
+:root:not([data-scheme="dark"]) .v3-act { stroke: #3F6B46; filter: none; }
+:root:not([data-scheme="dark"]) .v3-dot { fill: #1F2720; } .v3-ping { stroke: #3F6B46; }
+:root:not([data-scheme="dark"]) .v3-chip { color: #1F2720; background: #FFFFFF; border-color: #E4E0D4; box-shadow: 0 12px 24px -14px rgba(31, 39, 32, .4); }
+:root:not([data-scheme="dark"]) .v3-chip i { background: #1F2720; }
+:root:not([data-scheme="dark"]) .v3-flow li { color: #5A635B; border-color: #D9D4C7; }
+:root:not([data-scheme="dark"]) .v3-flow b { background: rgba(31, 39, 32, .06); }
+:root:not([data-scheme="dark"]) .auth-sw { color: #1F2720; }
+:root:not([data-scheme="dark"]) .auth-sw.scheme-sw { background: rgba(31, 39, 32, .06); border-color: #D9D4C7; }
+:root:not([data-scheme="dark"]) .auth-sw.scheme-sw button[aria-checked="true"] { background: #1F2720; color: #F4F1E8; }
+:root:not([data-scheme="dark"]) .auth-form form { box-shadow: 0 40px 80px -40px rgba(31, 39, 32, .45), 0 0 0 1px #E4E0D4; background: #FFFFFF; }
+:root:not([data-scheme="dark"]) .auth-emblem.kh { box-shadow: 0 8px 20px -10px rgba(31, 39, 32, .5); }
+/* overview hero by day */
+:root:not([data-scheme="dark"]) .ov-hero { color: #1F2720; background-color: #FFFFFF; background-image: radial-gradient(55% 70% at 0% 0%, rgba(77, 109, 81, .14), transparent 70%), radial-gradient(45% 60% at 100% 100%, rgba(77, 109, 81, .08), transparent 70%), radial-gradient(rgba(31, 39, 32, .07) 1px, transparent 1.2px); box-shadow: 0 1px 2px rgba(31, 39, 32, .05), 0 30px 60px -40px rgba(31, 39, 32, .35); border: 1px solid #E4E0D4; }
+:root:not([data-scheme="dark"]) .ovh-eyebrow, :root:not([data-scheme="dark"]) .ovh-stat .l, :root:not([data-scheme="dark"]) .ovh-stat .s { color: #5A635B; }
+:root:not([data-scheme="dark"]) .ovh-big small { color: #8A928B; }
+:root:not([data-scheme="dark"]) .ovh-delta.up { background: #E3F1E5; color: #2F7A3A; } .ovh-delta.down { background: #FBE5E0; color: #B0442F; }
+:root:not([data-scheme="dark"]) .ovh-seg { background: rgba(31, 39, 32, .05); border-color: #E4E0D4; }
+:root:not([data-scheme="dark"]) .ovh-seg button { color: #5A635B; } .ovh-seg button:hover { color: #1F2720; }
+:root:not([data-scheme="dark"]) .ovh-seg button[aria-pressed="true"] { background: #1F2720; color: #F4F1E8; }
+:root:not([data-scheme="dark"]) .ovh-grid { stroke: rgba(31, 39, 32, .09); }
+:root:not([data-scheme="dark"]) .ovh-now { fill: rgba(77, 109, 81, .07); }
+:root:not([data-scheme="dark"]) .ovh-line { stroke: #3F6B46; filter: none; }
+:root:not([data-scheme="dark"]) .ovh-zero { stroke: rgba(31, 39, 32, .16); }
+:root:not([data-scheme="dark"]) .ovh-net.up { fill: #4FA45C; } .ovh-net.down { fill: #D9654C; }
+:root:not([data-scheme="dark"]) .ovh-buf { stroke: #B9822A; } .ovh-buf-t { fill: #8F5A0C; }
+:root:not([data-scheme="dark"]) .ovh-low { fill: #FFFFFF; stroke: #B9822A; } .ovh-low-t { fill: #8F5A0C; stroke: #FFFFFF; }
+:root:not([data-scheme="dark"]) .ovh-pt { fill: #1F2720; stroke: #FFFFFF; }
+:root:not([data-scheme="dark"]) .ovh-cross { stroke: rgba(31, 39, 32, .3); }
+:root:not([data-scheme="dark"]) .ovh-x { fill: #8A928B; } .ovh-x.on { fill: #1F2720; }
+:root:not([data-scheme="dark"]) .ovh-tip { background: #1F2720; color: #F4F1E8; } .ovh-tip > span { color: #A4AEAB; } .ovh-tip b { color: #F4F1E8; }
+:root:not([data-scheme="dark"]) .ovh-tip .up b { color: #9FE0A8; } .ovh-tip .down b { color: #F2A596; }
+:root:not([data-scheme="dark"]) .ovh-stats { border-top-color: #E4E0D4; } .ovh-stat { border-inline-start-color: #EEEAE0; }
+:root:not([data-scheme="dark"]) .ovh-stat:hover { background: rgba(31, 39, 32, .035); }
+:root:not([data-scheme="dark"]) .ovh-stat.t-pay b { color: #B0442F; } .ovh-stat.t-rec b { color: #2F7A3A; }
+/* analysis header and the season cards by day */
+:root:not([data-scheme="dark"]) .an-hero, :root:not([data-scheme="dark"]) .ov-seasoncard, :root:not([data-scheme="dark"]) .an-season-head { color: #1F2720; background: #FFFFFF; background-image: radial-gradient(70% 90% at 100% 0%, rgba(77, 109, 81, .12), transparent 65%); border: 1px solid #E4E0D4; }
+:root:not([data-scheme="dark"]) .an-hero .an-eyebrow.light, :root:not([data-scheme="dark"]) .ov-seasoncard .an-eyebrow.light, :root:not([data-scheme="dark"]) .an-season-head .an-eyebrow.light { color: #4D6D51; }
+}
+/* night: the analysis header and season cards use the same ink as the overview hero */
+:root[data-scheme="dark"] .an-hero, :root[data-scheme="dark"] .ov-seasoncard, :root[data-scheme="dark"] .an-season-head { background-color: #121813; background-image: radial-gradient(70% 90% at 100% 0%, rgba(77, 109, 81, .4), transparent 65%); color: #F4F1E8; }
+@media (prefers-color-scheme: dark) {
+/* night: the analysis header and season cards use the same ink as the overview hero */
+:root:not([data-scheme="light"]) .an-hero, :root:not([data-scheme="light"]) .ov-seasoncard, :root:not([data-scheme="light"]) .an-season-head { background-color: #121813; background-image: radial-gradient(70% 90% at 100% 0%, rgba(77, 109, 81, .4), transparent 65%); color: #F4F1E8; }
+}
+/* the five steps by day: dark type on paper, the lit step in deep green */
+@keyframes v3-step-day { 0%, 18% { color: #FFFFFF; background: #3F6B46; border-color: #3F6B46; } 24%, 100% { color: #5A635B; background: transparent; border-color: #D9D4C7; } }
+:root[data-scheme="light"] .v3-flow li { animation-name: v3-step-day; }
+@media (prefers-color-scheme: light) { :root:not([data-scheme="dark"]) .v3-flow li { animation-name: v3-step-day; } }
