@@ -6,6 +6,8 @@ import { useI18n } from '../i18n';
 import { acc, date, m, planDays } from '../format';
 import { Loading } from '../ui/Loading';
 import { useForecast } from './Overview';
+import type { Forecast } from '../api';
+import { useI18n as useI18n2 } from '../i18n';
 
 /**
  * Cash control and ROI. Read as an auditor and a treasurer would: is there enough cash cover, is cash lying idle,
@@ -113,6 +115,8 @@ export function CashControl() {
         <p className="sub" style={{ marginTop: 8 }}>{T('Effects are rough, before tax, and use the rate above. They are a guide for the decision, not a promise.', 'الآثار تقريبية قبل الضريبة وتستخدم العائد أعلاه. هي دليل للقرار وليست وعدًا.')}</p>
       </section>
 
+      <CoverChart f={f} avgPay={A.avgPay} />
+      <MoneyMix f={f} />
       <div className="grid cc-two" style={{ marginTop: 20 }}>
         <section className="card">
           <h2>{T('Controls checklist', 'قائمة الضوابط')}</h2>
@@ -192,5 +196,68 @@ function RoiCalc({ rate }: { rate: number }) {
         : T(`${v.name}: not worth it at these numbers. The cash earns more on deposit at ${rate}%.`, `${v.name}: غير مجدٍ بهذه الأرقام. النقد يحقق أكثر في وديعة بعائد ${rate}%.`)}</p>
       <p className="sub">{T('Rough: profit is cash before tax and financing; ramp-up months earn half.', 'تقريبي: الربح نقدي قبل الضريبة والتمويل؛ أشهر البدء بنصف الربح.')}</p>
     </section>
+  );
+}
+
+/**
+ * Weeks of cover, week by week: closing cash divided by an average week of payments. Under one week is red, under two
+ * amber. The two dashed lines are the 1-week and 2-week marks. Hover a bar for the week.
+ */
+function CoverChart({ f, avgPay }: { f: Forecast; avgPay: number }) {
+  const { lang } = useI18n2();
+  const T = (en: string, ar: string) => (lang === 'ar' ? ar : en);
+  const [tip, setTip] = useState<number | null>(null);
+  const cover = f.l1.closing.map((c) => (avgPay ? c / avgPay : 0)), N = cover.length;
+  const W = 1000, H = 230, L = 34, R = 8, T0 = 14, B = H - 28, top = Math.max(2.6, ...cover) * 1.08;
+  const step = (W - L - R) / N, bw = Math.max(3, step * 0.62);
+  const x = (i: number) => (lang === 'ar' ? W - (L + step * i + step / 2) : L + step * i + step / 2), y = (v: number) => B - (Math.max(0, v) / top) * (B - T0);
+  const under1 = cover.filter((c) => c < 1).length, under2 = cover.filter((c) => c < 2).length;
+  const every = Math.max(1, Math.ceil(N / 12));
+  return (
+    <section className="card cc-cover" style={{ marginTop: 20 }}>
+      <div className="dr-head" style={{ marginTop: 0 }}><div><h2>{T('Cash cover, week by week', 'تغطية النقد أسبوعًا بأسبوع')}</h2>
+        <p className="sub">{T(`Closing cash in weeks of average payments (${m(avgPay)} a week). ${under1} weeks under 1 week of cover, ${under2} under 2.`, `النقد الختامي بعدد أسابيع المدفوعات (${m(avgPay)} أسبوعيًا). ${under1} أسبوعًا تحت أسبوع واحد و${under2} تحت أسبوعين.`)}</p></div>
+        <div className="legend"><span><i style={{ background: 'var(--crit)' }} />{T('under 1 week', 'أقل من أسبوع')}</span><span><i style={{ background: 'var(--warn)' }} />{T('1–2 weeks', '1–2 أسبوع')}</span><span><i style={{ background: 'var(--good)' }} />{T('2+ weeks', 'أسبوعان فأكثر')}</span></div></div>
+      <div className="chart" onMouseLeave={() => setTip(null)}>
+        <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={T('Weeks of cash cover by week', 'أسابيع تغطية النقد حسب الأسبوع')}>
+          {[1, 2].map((v) => <g key={v}><line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke={v === 1 ? 'var(--crit)' : 'var(--warn)'} strokeOpacity=".55" strokeDasharray="5 5" />
+            <text x={lang === 'ar' ? W - 4 : 4} y={y(v) + 4} fontSize="11" textAnchor={lang === 'ar' ? 'end' : 'start'} fill="var(--ink2)">{v}w</text></g>)}
+          {cover.map((c, i) => <rect key={i} x={x(i) - bw / 2} y={y(c)} width={bw} height={Math.max(2, B - y(c))} rx="3" className="cc-bar" style={{ animationDelay: i * 18 + 'ms' }}
+            fill={c < 1 ? 'var(--crit)' : c < 2 ? 'var(--warn)' : 'var(--good)'} opacity={tip === null || tip === i ? 1 : 0.45} />)}
+          {f.weeks.map((w, i) => (i % every === 0 || i === N - 1) && <text key={i} x={x(i)} y={H - 8} textAnchor="middle" fontSize="11" fill="var(--ink2)">{date(w.start, lang, { day: 'numeric', month: 'short' })}</text>)}
+          {f.weeks.map((_, i) => <rect key={'h' + i} x={x(i) - step / 2} y={0} width={step} height={H} fill="transparent" onMouseEnter={() => setTip(i)} />)}
+        </svg>
+        {tip !== null && <div className="tip num" style={{ left: (x(tip) / W) * 100 + '%', top: `calc(${(y(cover[tip]) / H) * 100}% - 10px)` }}>
+          <b>{f.weeks[tip].label} · {date(f.weeks[tip].start, lang, { day: 'numeric', month: 'short' })}</b><br />{T('Closing ', 'الختامي ')}{m(f.l1.closing[tip])}<br />{cover[tip].toFixed(2)} {T('weeks of cover', 'أسابيع تغطية')}</div>}
+      </div>
+    </section>
+  );
+}
+
+/** Where the money comes from and goes: receipts and payments by category over the plan, with share and a weekly average. */
+function MoneyMix({ f }: { f: Forecast }) {
+  const { lang, txt } = useI18n2();
+  const T = (en: string, ar: string) => (lang === 'ar' ? ar : en);
+  const days = planDays(f.weeks), wk = days / 7;
+  const rows = (section: 'receipts' | 'payments') => f.categories.filter((c) => c.section === section).map((c) => ({ id: c.id, label: txt(c), v: sum(f.l2[c.id] || []) })).filter((r) => r.v > 0.5).sort((a, b) => b.v - a.v);
+  const rec = rows('receipts'), pay = rows('payments'), R = sum(rec.map((r) => r.v)), P = sum(pay.map((r) => r.v));
+  const block = (title: string, list: typeof rec, total: number, tone: string) => (
+    <section className="card">
+      <h2>{title}</h2>
+      <p className="sub">{m(total)} {T('over the plan', 'خلال الخطة')} · {m(total / wk)} {T('a week', 'أسبوعيًا')}</p>
+      <ul className="mx">{list.slice(0, 9).map((r, i) => (
+        <li key={r.id} style={{ animationDelay: i * 50 + 'ms' }}>
+          <div className="mx-top"><span>{r.label}</span><b className="num">{m(r.v)}</b></div>
+          <div className="mx-bar"><i style={{ width: (total ? (r.v / list[0].v) * 100 : 0) + '%', background: tone }} /></div>
+          <div className="mx-sub sub"><span>{total ? ((r.v / total) * 100).toFixed(1) : '0'}%</span><span>{m(r.v / wk)} {T('a week', 'أسبوعيًا')}</span></div>
+        </li>))}</ul>
+      {list.length > 9 && <p className="sub">{T(`and ${list.length - 9} smaller lines`, `و${list.length - 9} بنود أصغر`)} · {m(sum(list.slice(9).map((r) => r.v)))}</p>}
+    </section>
+  );
+  return (
+    <div className="grid cc-two" style={{ marginTop: 20 }}>
+      {block(T('Where the money comes from', 'من أين يأتي المال'), rec, R, 'var(--rec)')}
+      {block(T('Where the money goes', 'أين يذهب المال'), pay, P, 'var(--pay)')}
+    </div>
   );
 }

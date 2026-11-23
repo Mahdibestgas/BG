@@ -104,6 +104,7 @@ export function BudgetHome() {
           <h2>{cycle.name} <span className={'pill' + (cycle.status === 'open' ? ' ok' : '')}>{cycle.status === 'open' ? T('Open', 'مفتوحة') : T('Closed', 'مغلقة')}</span></h2>
           <p className="sub">{monthLabel(cycle.monthKeys[0], lang)} – {monthLabel(cycle.monthKeys[cycle.months - 1], lang)} · {cycle.months} {T('months', 'شهرًا')}{cycle.deadline ? ' · ' + T('departments submit by ', 'تسليم الإدارات بحلول ') + date(cycle.deadline, lang, { day: 'numeric', month: 'long', year: 'numeric' }) : ''} · {T('amounts in SAR, excluding VAT', 'المبالغ بالريال وبدون ضريبة القيمة المضافة')}</p>
           <Cylinders cycleId={cycle.id} departments={board.departments} />
+          <DeptGlance departments={board.departments} />
           <div className="khz-scroll" style={{ marginTop: 14 }}>
             <table className="tbl bgt-board"><thead><tr><th>{T('Department', 'الإدارة')}</th><th>{T('Status', 'الحالة')}</th><th>{T('Study and plan', 'الدراسة والخطة')}</th><th className="n">{T('Revenue', 'الإيرادات')}</th><th className="n">{T('Costs', 'التكاليف')}</th><th className="n">{T('Capex', 'الرأسمالية')}</th><th>{T('Updated', 'آخر تحديث')}</th><th /></tr></thead>
               <tbody>{board.departments.map((d: any) => (
@@ -937,6 +938,36 @@ export function CompanyBudget() {
         </section>
       </div>
       {s.me.role === 'owner' && !preview && <ToCashPlan cycleId={cycleId} startMonth={r.cycle.startMonth} approvedCount={r.included.filter((x) => x.status === 'approved').length} />}
+    </div>
+  );
+}
+
+/** The owner's comparison of departments: how much each asks for, how far along each is, and the share of the total. */
+function DeptGlance({ departments }: { departments: any[] }) {
+  const { lang, txt } = useI18n();
+  const T = (en: string, ar: string) => (lang === 'ar' ? ar : en);
+  const rows = departments.map((d, i) => ({ id: d.department, name: txt(d.name), costs: d.totals?.costs || 0, capex: d.totals?.capex || 0, revenue: d.totals?.revenue || 0, status: d.status as Status, p: progressOf(d), color: deptColor(i) }));
+  const spend = rows.map((r) => r.costs + r.capex), total = sum(spend), max = Math.max(1, ...spend);
+  const approved = rows.filter((r) => r.status === 'approved').length, waiting = rows.filter((r) => r.status === 'submitted').length;
+  const revenue = sum(rows.map((r) => r.revenue));
+  if (!rows.length) return null;
+  return (
+    <div className="dg">
+      <div className="an-kpis sm" style={{ marginTop: 14 }}>
+        <div className="an-kpi sm t-brand"><span className="l">{T('Approved', 'معتمدة')}</span><span className="v num">{approved} / {rows.length}</span></div>
+        <div className="an-kpi sm t-brand"><span className="l">{T('Waiting for you', 'بانتظارك')}</span><span className="v num">{waiting}</span></div>
+        <div className="an-kpi sm t-pay"><span className="l">{T('Costs and capex asked', 'التكاليف والرأسمالية المطلوبة')}</span><span className="v num">{m(total)}</span></div>
+        {revenue > 0 && <div className="an-kpi sm t-rec"><span className="l">{T('Revenue planned', 'الإيرادات المخططة')}</span><span className="v num">{m(revenue)}</span><span className="s">{T('cost to revenue ', 'التكلفة إلى الإيراد ')}{revenue ? Math.round((total / revenue) * 100) : 0}%</span></div>}
+      </div>
+      <ul className="dg-rows">{rows.map((r, i) => (
+        <li key={r.id} style={{ animationDelay: i * 45 + 'ms' }}>
+          <span className="dg-name"><i style={{ background: r.color }} />{r.name}</span>
+          <span className="dg-bar"><i style={{ width: (spend[i] / max) * 100 + '%', background: r.color }} /></span>
+          <b className="num">{m(spend[i])}</b>
+          <span className="dg-share sub">{total ? Math.round((spend[i] / total) * 100) : 0}%</span>
+          <span className={'dg-prog ' + r.status}><i style={{ width: Math.round(r.p * 100) + '%' }} /><em>{Math.round(r.p * 100)}%</em></span>
+        </li>))}</ul>
+      <p className="sub" style={{ marginTop: 6 }}>{T('Bar: costs and capex asked by each department. Right: how far along it is.', 'الشريط: التكاليف والرأسمالية المطلوبة لكل إدارة. يمين: مدى تقدمها.')}</p>
     </div>
   );
 }
