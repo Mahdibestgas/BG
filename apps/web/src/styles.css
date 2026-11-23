@@ -1352,3 +1352,20 @@ main { position: relative; }
 .lc .lc-guide b { font-weight: 700; }
 .lc .lc-guide .link { font-size: 12px; }
 .lc-noguide { font-size: 12px; }
+
+/* budget vs history and the company heat map */
+.dr-gaps { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 8px; }
+.dr-gaps li { display: grid; grid-template-columns: minmax(140px, 1.3fr) minmax(0, 1.5fr) auto auto; gap: 10px; align-items: center; font-size: 13.5px; }
+.dr-gapbar { height: 8px; border-radius: 8px; background: var(--sunken); overflow: hidden; }
+.dr-gapbar i { display: block; height: 100%; border-radius: 8px; transform-origin: left; animation: dg-grow .8s var(--m-ease) both; }
+.dr-gapbar i.up { background: var(--warn); } .dr-gapbar i.down { background: var(--good); }
+.hm-wrap { overflow-x: auto; margin-top: 12px; }
+.hm { border-collapse: separate; border-spacing: 3px; width: 100%; font-size: 12px; }
+.hm th { font-weight: 500; color: var(--ink2); text-align: start; white-space: nowrap; padding: 4px 6px; }
+.hm thead th { text-align: center; font-size: 11px; }
+.hm td { min-width: 54px; height: 34px; text-align: center; border-radius: 8px; font-variant-numeric: tabular-nums; cursor: default; animation: hm-in .4s var(--m-ease) both; transition: transform var(--m-fast) var(--m-ease), box-shadow var(--m-fast); }
+.hm td:hover { transform: scale(1.08); box-shadow: 0 6px 16px -8px rgba(0, 0, 0, .5); position: relative; z-index: 1; }
+.hm td.hm-tot { background: transparent !important; color: var(--ink) !important; font-weight: 700; text-align: end; animation: none; }
+@keyframes hm-in { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: none; } }
+@media (max-width: 640px) { .dr-gaps li { grid-template-columns: 1fr auto; } .dr-gapbar { grid-column: 1 / -1; } }
+@media (prefers-reduced-motion: reduce) { .hm td, .dr-gapbar i { animation: none !important; } }

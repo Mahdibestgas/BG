@@ -667,6 +667,22 @@ function DeptReport({ meta, dept, deptName, cycleName, lines, positions, months,
         </section>
       </div>
 
+      {(() => {
+        const guideMonth = sum(Object.entries(meta.guidance?.items || {}).filter(([id]) => item(id)?.dept === dept).map(([, v]) => v));
+        if (!guideMonth) return null;
+        const gaps = items.filter((i) => i.guide).map((i) => ({ ...i, gap: i.avg - (i.guide || 0) })).sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap)).slice(0, 5);
+        const yearGap = total - guideMonth * n;
+        return (
+          <section className="card dr-vs" style={{ marginTop: 20 }}>
+            <h2>{T('Your budget against history, month by month', 'ميزانيتك مقابل التاريخ شهرًا بشهر')}</h2>
+            <p className="sub">{T(`Bars: your budget. Line: the bank history for this department, ${m(guideMonth)} a month (${m(guideMonth * n)} for the year). `, `الأعمدة: ميزانيتك. الخط: تاريخ البنك لهذه الإدارة، ${m(guideMonth)} شهريًا (${m(guideMonth * n)} للسنة). `)}
+              <b className={yearGap > 0 ? 'warn-t' : ''}>{yearGap >= 0 ? T(`${m(yearGap)} above history for the year (${guideMonth ? ((yearGap / (guideMonth * n)) * 100).toFixed(1) : 0}%).`, `أعلى من التاريخ بـ ${m(yearGap)} للسنة (${guideMonth ? ((yearGap / (guideMonth * n)) * 100).toFixed(1) : 0}%).`) : T(`${m(-yearGap)} below history for the year (${((-yearGap / (guideMonth * n)) * 100).toFixed(1)}%).`, `أقل من التاريخ بـ ${m(-yearGap)} للسنة (${((-yearGap / (guideMonth * n)) * 100).toFixed(1)}%).`)}</b></p>
+            <MonthColumns months={months.map((k) => monthLabel(k, lang))} revenue={months.map(() => 0)} costs={monthTot} line={months.map(() => guideMonth)} labels={{ revenue: '', costs: T('Your budget', 'ميزانيتك'), line: T('Bank history', 'تاريخ البنك') }} />
+            <h3 className="an-h3">{T('Biggest gaps against history', 'أكبر الفروقات عن التاريخ')}</h3>
+            <ul className="dr-gaps">{gaps.map((g) => <li key={g.id}><span>{g.name}</span><span className="dr-gapbar"><i className={g.gap > 0 ? 'up' : 'down'} style={{ width: Math.min(100, (Math.abs(g.gap) / Math.max(1, Math.abs(gaps[0].gap))) * 100) + '%' }} /></span>
+              <b className={'num ' + (g.gap > 0 ? 'warn-t' : '')}>{g.gap > 0 ? '+' : '−'}{m(Math.abs(g.gap))}</b><span className="sub">{T('a month', 'شهريًا')} · {g.guide ? (g.gap > 0 ? '+' : '') + Math.round((g.gap / g.guide) * 100) + '%' : ''}</span></li>)}</ul>
+          </section>);
+      })()}
       {items.some((i) => i.guide) && <section className="card" style={{ marginTop: 20 }}>
         <h2>{T('Against the bank guide', 'مقابل إرشاد البنك')}</h2>
         <p className="sub">{meta.guidance?.source}{meta.guidance?.period ? ' · ' + meta.guidance.period : ''} · {T('your average a month next to the history', 'متوسطك الشهري بجانب التاريخي')}</p>
@@ -919,6 +935,7 @@ export function CompanyBudget() {
         <section className="card"><h2>{T('Revenue and costs by city', 'الإيرادات والتكاليف حسب المدينة')}</h2>
           <HBars labels={{ a: T('Revenue', 'الإيرادات'), b: T('Costs', 'التكاليف') }} rows={Object.entries(b.byRegion).map(([c, v]) => ({ id: c, label: rName(c), a: sum(v.revenue), b: sum(v.costs) })).sort((x, y) => (y.a + (y.b || 0)) - (x.a + (x.b || 0)))} /></section>
       </div>
+      <CompanyHeat b={b} keys={keys} dName={dName} iName={iName} />
       <section className="card" style={{ marginTop: 20 }}>
         <h2>{T('Month by month', 'شهرًا بشهر')}</h2>
         <div className="ledger-wrap" style={{ marginTop: 12 }}><table className="ledger">
@@ -982,5 +999,47 @@ function DeptGlance({ departments }: { departments: any[] }) {
         </li>))}</ul>
       <p className="sub" style={{ marginTop: 6 }}>{T('Bar: costs and capex asked by each department. Right: how far along it is.', 'الشريط: التكاليف والرأسمالية المطلوبة لكل إدارة. يمين: مدى تقدمها.')}</p>
     </div>
+  );
+}
+
+/**
+ * The owner's company view: spending by department and month as a heat map (darker = more), the ten biggest items,
+ * and the company budget against the bank history item by item.
+ */
+function CompanyHeat({ b, keys, dName, iName }: { b: Consolidated; keys: string[]; dName: (id: string) => string; iName: (id: string) => string }) {
+  const { lang } = useI18n();
+  const T = (en: string, ar: string) => (lang === 'ar' ? ar : en);
+  const { meta } = useBudgetMeta();
+  const [tip, setTip] = useState<string | null>(null);
+  const spendOf = (k: Consolidated['byDept'][string], i: number) => k.cogs[i] + k.opex[i] + k.noncash[i] + k.financing[i] + k.capex[i];
+  const depts = Object.entries(b.byDept).map(([id, k]) => ({ id, name: dName(id), cells: keys.map((_, i) => spendOf(k, i)) })).filter((d) => sum(d.cells) > 0).sort((a, c) => sum(c.cells) - sum(a.cells));
+  const max = Math.max(1, ...depts.flatMap((d) => d.cells));
+  const top = [...b.byItem].filter((x) => x.kind !== 'revenue').sort((a, c) => c.total - a.total).slice(0, 10);
+  const topMax = Math.max(1, ...top.map((x) => x.total));
+  const guide = meta?.guidance?.items || {};
+  const vs = b.byItem.filter((x) => guide[x.item]).map((x) => ({ id: x.item, label: iName(x.item), a: x.total / keys.length, b: guide[x.item] })).sort((a, c) => c.b - a.b).slice(0, 12);
+  if (!depts.length) return null;
+  return (
+    <>
+      <section className="card" style={{ marginTop: 20 }}>
+        <h2>{T('Spending heat map: department by month', 'خريطة الإنفاق: الإدارة حسب الشهر')}</h2>
+        <p className="sub">{T('Costs and capex. Darker cells spend more; hover a cell for the amount. Peaks show where cash will be needed.', 'التكاليف والرأسمالية. الخلايا الأغمق تنفق أكثر؛ مرّر على الخلية لرؤية المبلغ. القمم تُظهر متى سيلزم النقد.')}</p>
+        <div className="hm-wrap"><table className="hm">
+          <thead><tr><th />{keys.map((k) => <th key={k}>{monthLabel(k, lang)}</th>)}<th>{T('Total', 'الإجمالي')}</th></tr></thead>
+          <tbody>{depts.map((d, r) => <tr key={d.id}><th>{d.name}</th>{d.cells.map((v, i) => {
+            const a = v / max, id = d.id + i;
+            return <td key={i} onMouseEnter={() => setTip(id)} onMouseLeave={() => setTip(null)} style={{ background: `color-mix(in oklab, var(--brand) ${Math.round(8 + a * 80)}%, var(--surface))`, color: a > 0.55 ? '#fff' : 'var(--ink)', animationDelay: (r * keys.length + i) * 8 + 'ms' }} title={`${d.name} · ${monthLabel(keys[i], lang)} · ${acc(v)}`}>{tip === id ? acc(v) : v >= 1e6 ? (v / 1e6).toFixed(1) + 'M' : v >= 1e3 ? Math.round(v / 1e3) + 'k' : v ? Math.round(v) : ''}</td>;
+          })}<td className="hm-tot num">{m(sum(d.cells))}</td></tr>)}</tbody>
+        </table></div>
+      </section>
+      <div className="bgt-two">
+        <section className="card"><h2>{T('The ten biggest items', 'أكبر عشرة بنود')}</h2>
+          <ul className="mx">{top.map((x, i) => <li key={x.dept + x.item} style={{ animationDelay: i * 40 + 'ms' }}><div className="mx-top"><span>{iName(x.item)} <span className="sub">· {dName(x.dept)}</span></span><b className="num">{m(x.total)}</b></div>
+            <div className="mx-bar"><i style={{ width: (x.total / topMax) * 100 + '%', background: 'var(--pay)' }} /></div></li>)}</ul></section>
+        {vs.length > 0 && <section className="card"><h2>{T('Company budget against history', 'ميزانية الشركة مقابل التاريخ')}</h2>
+          <p className="sub">{T('Average a month in the budget next to the bank history, for every item that has history.', 'المتوسط الشهري في الميزانية بجانب تاريخ البنك لكل بند له تاريخ.')}</p>
+          <HBars rows={vs} labels={{ a: T('Budget a month', 'الميزانية شهريًا'), b: T('Bank history a month', 'التاريخ شهريًا') }} /></section>}
+      </div>
+    </>
   );
 }
