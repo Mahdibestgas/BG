@@ -113,7 +113,8 @@ export function cleanSubmission(input: unknown, c: CleanCtx): SubmissionBody {
   if (rawLines.length > MAX_LINES) throw new BudgetError('too_many_lines');
   if (rawPos.length > MAX_POSITIONS) throw new BudgetError('too_many_positions');
   if (rawPos.length && c.dept !== 'hr') throw new BudgetError('positions_hr_only');
-  const regionOk = (r: string, at: string) => { if (!c.regions.includes(r)) throw new BudgetError('unknown_region:' + at); return r; };
+  // 'company' is a line for the whole company, not one city
+  const regionOk = (r: string, at: string) => { if (r !== 'company' && !c.regions.includes(r)) throw new BudgetError('unknown_region:' + at); return r; };
   const seen = new Set<string>();
   const uid = (v: unknown, at: string) => {
     const s = typeof v === 'string' && ID.test(v) ? v : '';

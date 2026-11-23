@@ -300,7 +300,7 @@ export function DeptBudget() {
   // a locked budget shows the HR lines as they were saved, never redrawn from today's rates
   const generated = editable ? liveGenerated : (d.submission?.body.lines || []).filter((l) => l.posId);
   const itemOf = (id: string) => meta.pack.items.find((i) => i.id === id);
-  const regionName = (id: string) => txt(meta.regions.find((r) => r.id === id)?.name) || id;
+  const regionName = (id: string) => (id === 'company' ? T('Whole company', 'الشركة كاملة') : txt(meta.regions.find((r) => r.id === id)?.name) || id);
   const all = [...lines, ...generated];
   const byKind = (k: Kind) => sum(all.filter((l) => itemOf(l.item)?.kind === k).map((l) => sum(l.amounts)));
   const version = d.submission?.version ?? 0;
@@ -333,7 +333,12 @@ export function DeptBudget() {
   };
 
   const setLine = (i: number, fn: (l: Line) => Line) => { setLines(lines.map((l, j) => (j === i ? norm(fn(l)) : l))); touch(); };
-  const addLine = (item: string) => { setLines([...lines, { id: uid(), item, region: meta.regions[0]?.id || '', desc: '', amounts: new Array(n).fill(0) }]); touch(); };
+  const addLine = (item: string) => { setLines([...lines, { id: uid(), item, region: 'company', desc: '', amounts: new Array(n).fill(meta.guidance?.items[item] ? 0 : 0) }]); touch(); };
+  // one line becomes one line per city, the amounts shared equally (quantities too, for quantity x price lines)
+  const splitLine = (i: number) => { const l = lines[i], cities = meta.regions.filter((r) => r.id !== 'hq'), k = cities.length || 1;
+    const share = (a: number[]) => a.map((v) => Math.round((v / k) * 100) / 100);
+    const parts = cities.map((r) => norm({ ...l, id: uid(), region: r.id, amounts: share(l.amounts), basis: l.basis ? { ...l.basis, qty: share(l.basis.qty) } : undefined }));
+    setLines([...lines.slice(0, i), ...parts, ...lines.slice(i + 1)]); touch(); };
   const groups = items.reduce<Array<{ g: Txt; items: Item[] }>>((acc2, it) => { const k = acc2.find((x) => x.g.en === it.group.en); if (k) k.items.push(it); else acc2.push({ g: it.group, items: [it] }); return acc2; }, []);
 
   return (
@@ -368,7 +373,7 @@ export function DeptBudget() {
       {tab === 'budget' && dept === 'hr' && <Positions meta={meta} n={n} months={d.cycle.monthKeys} positions={positions} editable={editable} onChange={(p) => { setPositions(p); touch(); }} generated={generated} />}
 
       {tab === 'budget' && <GuidanceCard meta={meta} items={items} lines={all} n={n} editable={editable}
-        onUse={(ids) => { setLines([...lines, ...ids.map((id) => ({ id: uid(), item: id, region: meta.regions[0]?.id || '', desc: T('From guidance: ', 'من الإرشاد: ') + (meta.guidance?.source || ''), amounts: new Array(n).fill(meta.guidance!.items[id]) }))]); touch(); }} />}
+        onUse={(ids) => { setLines([...lines, ...ids.map((id) => ({ id: uid(), item: id, region: 'company', desc: T('From guidance: ', 'من الإرشاد: ') + (meta.guidance?.source || ''), amounts: new Array(n).fill(meta.guidance!.items[id]) }))]); touch(); }} />}
       {tab === 'budget' && <section className="card" style={{ marginTop: 20 }}>
         <div className="guide-head"><h2>{dept === 'hr' ? T('Other HR lines', 'بنود الموارد البشرية الأخرى') : T('Budget lines', 'بنود الميزانية')}</h2>
           <div className="seg" role="group" aria-label={T('View', 'العرض')}><button type="button" aria-pressed={lv === 'cards'} onClick={() => pickLv('cards')}>{T('Cards', 'بطاقات')}</button><button type="button" aria-pressed={lv === 'table'} onClick={() => pickLv('table')}>{T('Spreadsheet', 'جدول')}</button></div></div>
@@ -376,7 +381,7 @@ export function DeptBudget() {
         {lines.length === 0 && <p className="empty" style={{ marginTop: 12 }}>{T('No lines yet. Add the first item below.', 'لا توجد أسطر بعد. أضف أول بند أدناه.')}</p>}
         {lines.length > 0 && lv === 'cards' && <div className="lc-list">{lines.map((l, i) => (
           <LineCard key={l.id} line={l} item={itemOf(l.item)} groups={groups} regions={meta.regions} months={d.cycle.monthKeys} editable={editable}
-            guide={meta.guidance?.items[l.item]} onChange={(fn) => setLine(i, fn)} onRemove={() => { setLines(lines.filter((_, j) => j !== i)); touch(); }} />))}
+            guide={meta.guidance?.items[l.item]} onChange={(fn) => setLine(i, fn)} onRemove={() => { setLines(lines.filter((_, j) => j !== i)); touch(); }} onSplit={() => splitLine(i)} />))}
           <div className="lc-total"><span>{T('Total of these lines', 'إجمالي هذه الأسطر')}</span><b className="num">{m(sum(lines.map((l) => sum(l.amounts))))}</b><small>{T('a month on average ', 'متوسط شهري ')}{m(sum(lines.map((l) => sum(l.amounts))) / Math.max(1, n))}</small></div>
         </div>}
         {lines.length > 0 && lv === 'table' && (
@@ -394,7 +399,7 @@ export function DeptBudget() {
                           <select disabled={!editable} value={l.item} onChange={(e) => setLine(i, (x) => ({ ...x, item: e.target.value, basis: itemOf(e.target.value)?.unit ? x.basis : undefined }))} aria-label={T('Item', 'البند')}>
                             {groups.map((gr) => <optgroup key={gr.g.en} label={txt(gr.g)}>{gr.items.map((x) => <option key={x.id} value={x.id}>{txt(x.name)}{x.kind === 'capex' ? ' · capex' : ''}</option>)}</optgroup>)}
                           </select>
-                          <select disabled={!editable} value={l.region} onChange={(e) => setLine(i, (x) => ({ ...x, region: e.target.value }))} aria-label={T('City', 'المدينة')}>{meta.regions.map((r) => <option key={r.id} value={r.id}>{txt(r.name)}</option>)}</select>
+                          <select disabled={!editable} value={l.region} onChange={(e) => setLine(i, (x) => ({ ...x, region: e.target.value }))} aria-label={T('Applies to', 'ينطبق على')}><option value="company">{T('Whole company', 'الشركة كاملة')}</option>{meta.regions.map((r) => <option key={r.id} value={r.id}>{txt(r.name)}</option>)}</select>
                           <input disabled={!editable} placeholder={T('Description', 'الوصف')} value={l.desc} onChange={(e) => setLine(i, (x) => ({ ...x, desc: e.target.value }))} />
                           {editable && <span className="bgt-tools">
                             {it?.unit && <button type="button" className="link" onClick={() => setLine(i, (x) => (x.basis ? { ...x, basis: undefined } : { ...x, basis: { qty: new Array(n).fill(0), price: 0 } }))}>{l.basis ? T('Enter amounts', 'إدخال مبالغ') : T('Quantity × price', 'الكمية × السعر')}</button>}
@@ -509,9 +514,9 @@ function GuidanceLoader({ meta, onDone }: { meta: Meta; onDone: (t: string) => v
  * One budget line as a card: what it is, how much a month, and the shape of the year as a bar strip.
  * The twelve months open only when the department wants them different from each other.
  */
-function LineCard({ line: l, item: it, groups, regions, months, editable, guide, onChange, onRemove }: {
+function LineCard({ line: l, item: it, groups, regions, months, editable, guide, onChange, onRemove, onSplit }: {
   line: Line; item: Item | undefined; groups: Array<{ g: Txt; items: Item[] }>; regions: Array<{ id: string; name: Txt }>; months: string[]; editable: boolean; guide: number | undefined;
-  onChange: (fn: (l: Line) => Line) => void; onRemove: () => void;
+  onChange: (fn: (l: Line) => Line) => void; onRemove: () => void; onSplit: () => void;
 }) {
   const { lang, txt } = useI18n();
   const T = (en: string, ar: string) => (lang === 'ar' ? ar : en);
@@ -531,7 +536,9 @@ function LineCard({ line: l, item: it, groups, regions, months, editable, guide,
         <select className="lc-item" disabled={!editable} value={l.item} onChange={(e) => onChange((x) => ({ ...x, item: e.target.value }))} aria-label={T('Item', 'البند')}>
           {groups.map((gr) => <optgroup key={gr.g.en} label={txt(gr.g)}>{gr.items.map((x) => <option key={x.id} value={x.id}>{txt(x.name)}</option>)}</optgroup>)}
         </select>
-        <select className="lc-city" disabled={!editable} value={l.region} onChange={(e) => onChange((x) => ({ ...x, region: e.target.value }))} aria-label={T('City', 'المدينة')}>{regions.map((r) => <option key={r.id} value={r.id}>{txt(r.name)}</option>)}</select>
+        <select className="lc-city" disabled={!editable} value={l.region} onChange={(e) => onChange((x) => ({ ...x, region: e.target.value }))} aria-label={T('Applies to', 'ينطبق على')}>
+          <option value="company">{T('Whole company', 'الشركة كاملة')}</option>
+          <optgroup label={T('By city', 'حسب المدينة')}>{regions.map((r) => <option key={r.id} value={r.id}>{txt(r.name)}</option>)}</optgroup></select>
         {editable && <button type="button" className="lc-x" onClick={onRemove} aria-label={T('Remove this line', 'حذف هذا السطر')} title={T('Remove', 'حذف')}>×</button>}
       </div>
       <input className="lc-desc" disabled={!editable} placeholder={T('What is it for? (optional)', 'لأي غرض؟ (اختياري)')} value={l.desc} onChange={(e) => onChange((x) => ({ ...x, desc: e.target.value }))} />
@@ -543,7 +550,12 @@ function LineCard({ line: l, item: it, groups, regions, months, editable, guide,
           </> : <label><span>{T('SAR a month', 'ريال شهريًا')}</span><NumInput disabled={!editable} label={T('Amount a month', 'المبلغ شهريًا')} className="lc-big num" value={flat ? vals[0] : undefined} onValue={(v) => setAll(v ?? 0)} /></label>}
           {!flat && <small className="lc-varies">{T('Varies by month · average ', 'يختلف حسب الشهر · المتوسط ')}{m(avg)}</small>}
           <div className="lc-sum"><b className="num">{m(tot)}</b><span>{T('for the year', 'للسنة')}</span></div>
-          {guide ? <span className={'lc-guide' + (diff !== null && Math.abs(diff) > 0.1 ? ' off' : '')}>{T('Guide ', 'الإرشاد ')}{m(guide)}{T(' a month', ' شهريًا')}{diff !== null && tot && Math.round(diff * 100) !== 0 ? ` · ${diff > 0 ? '+' : ''}${Math.round(diff * 100)}%` : ''}</span> : null}
+          {guide ? <div className={'lc-guide' + (diff !== null && Math.abs(diff) > 0.1 ? ' off' : '')}>
+            <span>{T('Guide ', 'الإرشاد ')}<b className="num">{m(guide)}</b>{T(' a month', ' شهريًا')}</span>
+            <span><b className="num">{m(guide * 12)}</b>{T(' a year', ' سنويًا')}{l.region !== 'company' ? T(' · whole company', ' · للشركة كاملة') : ''}</span>
+            {diff !== null && tot && Math.round(diff * 100) !== 0 ? <span>{diff > 0 ? '+' : ''}{Math.round(diff * 100)}% {T('vs guide', 'مقابل الإرشاد')}</span> : null}
+            {editable && <button type="button" className="link" onClick={() => onChange((x) => (x.basis ? x : { ...x, amounts: new Array(months.length).fill(Math.round(guide * 100) / 100) }))}>{T('Use the guide', 'استخدم الإرشاد')}</button>}
+          </div> : <span className="lc-noguide sub">{T('No history for this item: enter your own estimate.', 'لا يوجد تاريخ لهذا البند: أدخل تقديرك.')}</span>}
         </div>
         <div className="lc-strip" role="img" aria-label={T('Amount by month', 'المبلغ حسب الشهر')}>
           {l.amounts.map((v, k) => <button type="button" key={k} className={'lc-bar' + (hover === k ? ' on' : '')} style={{ ['--h' as string]: Math.max(4, (Math.abs(v) / mx) * 100) + '%', animationDelay: k * 35 + 'ms' }}
@@ -554,6 +566,7 @@ function LineCard({ line: l, item: it, groups, regions, months, editable, guide,
       {editable && <div className="lc-tools">
         <button type="button" className="link" onClick={() => setOpen(!open)} aria-expanded={open}>{open ? T('Hide months', 'إخفاء الأشهر') : T('Different each month', 'مختلف كل شهر')}</button>
         <button type="button" className="link" onClick={() => grow(2)}>{T('Grow 2% a month', 'نمو 2% شهريًا')}</button>
+        {regions.length > 1 && <button type="button" className="link" onClick={onSplit} title={T('One line per city, the amount shared equally', 'سطر لكل مدينة بمبالغ متساوية')}>{l.region === 'company' ? T('Split across cities', 'وزّع على المدن') : T('Split across all cities', 'وزّع على كل المدن')}</button>}
         {it?.unit && <button type="button" className="link" onClick={() => onChange((x) => (x.basis ? { ...x, basis: undefined } : { ...x, basis: { qty: new Array(n).fill(0), price: 0 } }))}>{l.basis ? T('Enter amounts instead', 'إدخال مبالغ بدلًا من ذلك') : T('Quantity × price', 'الكمية × السعر')}</button>}
       </div>}
       {open && <div className="lc-months">{months.map((k, j) => <label key={k}><span>{monthLabel(k, lang)}</span><NumInput disabled={!editable} label={monthLabel(k, lang)} value={vals[j]} onValue={(v) => setOne(j, v ?? 0)} /></label>)}</div>}

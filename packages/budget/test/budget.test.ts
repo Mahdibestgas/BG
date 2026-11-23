@@ -106,3 +106,15 @@ test('an approved budget becomes a cash plan: VAT added, spread by day, net VAT 
   assert.equal(v.monthly[1], 4650, 'January output VAT on sales, paid end of February (salaries carry none)');
   assert.equal(v.monthly[0], 0);
 });
+
+test('whole-company lines and the full catalogue: every department has its items, ids are unique, cash categories are known', () => {
+  const regions = KSA_LPG.regions.map((r) => r.id);
+  const c = { pack: KSA_LPG, dept: 'operations', months: 12, regions, params: KSA_HR_DEFAULTS };
+  const body = cleanSubmission({ lines: [{ id: 'w', item: 'op_tga', region: 'company', amounts: new Array(12).fill(5000) }] }, c);
+  assert.equal(body.lines[0].region, 'company', 'a line for the whole company is accepted');
+  for (const d of KSA_LPG.departments) assert.ok(KSA_LPG.items.filter((i) => i.dept === d.id).length >= 9, d.id + ' has a full list');
+  assert.equal(new Set(KSA_LPG.items.map((i) => i.id)).size, KSA_LPG.items.length);
+  const known = /^(|R_(CASH|POS|CUSTOMERS|TRANSFERS|OTHER)|P_(KHAZEEN|SUPPLIERS|PAYROLL|GOSI|RESIDENTS|RENT|UTILITIES|DIESEL|STAFF|GOV|BANK|ZATCA|LOAN|CAPEX|POS_FEES))$/;
+  for (const i of KSA_LPG.items) assert.match(i.cash, known, i.id + ' maps to a known cash category');
+  for (const i of KSA_LPG.items.filter((x) => x.kind !== 'noncash' && !x.cash)) assert.ok(['op_cylinder_loss', 'pr_gas_loss'].includes(i.id), i.id + ' has no cash effect on purpose');
+});

@@ -1346,3 +1346,9 @@ main { position: relative; }
 .dg-prog em { position: absolute; inset: 0; display: grid; place-items: center; font-style: normal; font-size: 11px; font-weight: 600; }
 @media (max-width: 720px) { .dg-rows li { grid-template-columns: 1fr auto; } .dg-bar, .dg-share { display: none; } .dg-prog { grid-column: 1 / -1; } }
 @media (prefers-reduced-motion: reduce) { .cc-bar, .mx li, .mx-bar i, .dg-rows li, .dg-bar i { animation: none !important; } }
+
+/* guide monthly and yearly on each line */
+.lc .lc-guide { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; justify-self: stretch; border-radius: 12px; padding: 8px 10px; font-weight: 500; }
+.lc .lc-guide b { font-weight: 700; }
+.lc .lc-guide .link { font-size: 12px; }
+.lc-noguide { font-size: 12px; }
