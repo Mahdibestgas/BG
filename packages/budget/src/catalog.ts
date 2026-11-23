@@ -217,6 +217,41 @@ const ITEMS: Item[] = [
   I('fa_facility_fees', 'finance_admin', g.finance, t('Facility arrangement and commitment fees', 'رسوم ترتيب والتزام التسهيلات'), 'financing', false, 'P_BANK'),
   I('fa_bad_debts', 'finance_admin', g.finance, t('Provision for doubtful debts', 'مخصص الديون المشكوك فيها'), 'noncash', false, '', { ebitda: true }),
   I('fa_lease_interest', 'finance_admin', g.finance, t('Lease interest (IFRS 16)', 'فوائد عقود الإيجار (IFRS 16)'), 'financing', false, 'P_RENT'),
+
+  // ---- second pass 2026-11-23 ----
+  // Procurement
+  I('pr_appliances', 'procurement', g.gas, t('Gas heaters, stoves and appliances for resale', 'دفايات ومواقد وأجهزة الغاز للبيع'), 'cogs', true, 'P_SUPPLIERS'),
+  I('pr_storage', 'procurement', g.gas, t('Third-party storage and handling', 'التخزين والمناولة لدى الغير'), 'cogs', true, 'P_SUPPLIERS'),
+  I('pr_quality_tests', 'procurement', g.services, t('Gas quality and lab tests', 'فحوص جودة الغاز والمختبر'), 'opex', true, 'P_SUPPLIERS'),
+  I('pr_platforms', 'procurement', g.services, t('Procurement platforms and supplier registration', 'منصات المشتريات وتسجيل الموردين'), 'opex', true, 'P_SUPPLIERS'),
+  I('pr_rebates', 'procurement', g.gas, t('Supplier rebates and volume discounts received', 'خصومات وحوافز الكميات من الموردين'), 'revenue', true, 'R_OTHER', { hint: t('Enter as a positive amount: it reduces the cost of purchases.', 'أدخله مبلغًا موجبًا: يخفض تكلفة المشتريات.') }),
+  // Sales
+  I('sa_appliances', 'sales', g.revenue, t('Gas heaters, stoves and appliance sales', 'مبيعات الدفايات والمواقد وأجهزة الغاز'), 'revenue', true, 'R_CASH'),
+  I('sa_delivery_fees', 'sales', g.revenue, t('Delivery charges to customers', 'رسوم التوصيل على العملاء'), 'revenue', true, 'R_TRANSFERS'),
+  I('sa_refills_corporate', 'sales', g.revenue, t('Restaurants, hotels and commercial refills', 'تعبئة المطاعم والفنادق والقطاع التجاري'), 'revenue', true, 'R_CUSTOMERS', { unit: t('cylinders', 'أسطوانة') }),
+  I('sa_rebates', 'sales', g.revenue, t('Customer rebates and volume discounts given', 'الخصومات والحوافز الممنوحة للعملاء'), 'opex', true, 'P_SUPPLIERS', { hint: t('A reduction of sales: enter as a positive cost.', 'تخفيض للمبيعات: أدخله كتكلفة موجبة.') }),
+  I('sa_app_commission', 'sales', g.revenue, t('Delivery-app and marketplace commissions', 'عمولات تطبيقات التوصيل والمنصات'), 'opex', true, 'P_SUPPLIERS'),
+  // Sales team
+  I('st_fuel', 'sales_team', g.team, t('Fuel for sales vehicles', 'وقود مركبات المبيعات'), 'opex', true, 'P_DIESEL'),
+  I('st_vehicle_lease', 'sales_team', g.team, t('Leased sales vehicles', 'مركبات مبيعات بالتأجير'), 'opex', true, 'P_SUPPLIERS'),
+  I('st_tenders', 'sales_team', g.team, t('Tender fees and bid bonds', 'رسوم المناقصات وضمانات العطاءات'), 'opex', false, 'P_GOV'),
+  // Marketing
+  I('mk_merch', 'marketing', g.media, t('Branded merchandise and giveaways', 'الهدايا الترويجية والمواد الدعائية'), 'opex', true, 'P_SUPPLIERS'),
+  I('mk_tools', 'marketing', g.media, t('Marketing software and CRM subscriptions', 'برامج التسويق واشتراكات إدارة العملاء'), 'opex', true, 'P_SUPPLIERS'),
+  I('mk_research', 'marketing', g.media, t('Market research and customer surveys', 'أبحاث السوق واستطلاعات العملاء'), 'opex', true, 'P_SUPPLIERS'),
+  // Finance and administration
+  I('fa_cash_transit', 'finance_admin', g.finance, t('Cash-in-transit collection from branches', 'خدمة نقل النقد من الفروع'), 'opex', true, 'P_SUPPLIERS'),
+  I('fa_deposit_income', 'finance_admin', g.finance, t('Deposit income (Murabaha)', 'عوائد الودائع (مرابحة)'), 'revenue', false, 'R_OTHER'),
+  I('fa_internal_audit', 'finance_admin', g.finance, t('Internal audit and controls review', 'المراجعة الداخلية وتقييم الضوابط'), 'opex', true, 'P_SUPPLIERS'),
+  I('fa_cyber', 'finance_admin', g.admin, t('Cybersecurity and data backup', 'الأمن السيبراني والنسخ الاحتياطي'), 'opex', true, 'P_SUPPLIERS'),
+  I('fa_hq_maintenance', 'finance_admin', g.admin, t('Head office cleaning, security and maintenance', 'نظافة وأمن وصيانة المركز الرئيسي'), 'opex', true, 'P_SUPPLIERS'),
+  I('fa_mgmt_cars', 'finance_admin', g.admin, t('Management cars and running costs', 'سيارات الإدارة ومصاريف تشغيلها'), 'opex', true, 'P_SUPPLIERS'),
+  I('fa_legal_cases', 'finance_admin', g.admin, t('Court fees and debt collection cases', 'رسوم المحاكم وقضايا التحصيل'), 'opex', false, 'P_GOV'),
+  // HR and operations, second pass
+  I('hr_relocation', 'hr', g.benefits, t('Relocation and joining costs', 'مصاريف الانتقال والالتحاق'), 'opex', true, 'P_SUPPLIERS'),
+  I('hr_occupational_health', 'hr', g.benefits, t('Occupational health checks and first aid', 'الفحوص المهنية والإسعافات الأولية'), 'opex', true, 'P_SUPPLIERS'),
+  I('op_equipment_rental', 'operations', g.fleet, t('Forklift and equipment rental', 'استئجار الرافعات والمعدات'), 'opex', true, 'P_SUPPLIERS'),
+  I('op_loading', 'operations', g.fleet, t('Loading and unloading labour', 'عمالة التحميل والتنزيل'), 'opex', true, 'P_SUPPLIERS'),
   I('fa_other', 'finance_admin', g.admin, t('Other administration costs', 'مصاريف إدارية أخرى'), 'opex', true, 'P_SUPPLIERS')
 ];
 
