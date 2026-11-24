@@ -32,6 +32,7 @@ model Tenant {
   budgetCycles   BudgetCycle[]
   budgetSubmissions BudgetSubmission[]
   budgetActuals  BudgetActual[]
+  budgetComments BudgetComment[]
 
   @@map("tenants")
 }
@@ -211,6 +212,7 @@ model BudgetCycle {
   tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   submissions BudgetSubmission[]
   actuals     BudgetActual[]
+  comments    BudgetComment[]
 
   @@index([tenantId])
   @@map("budget_cycles")
@@ -263,4 +265,34 @@ model BudgetActual {
 
   @@index([tenantId, cycleId, month])
   @@map("budget_actuals")
+}
+
+/// A department's explanation of one line's variance (item and city, year to date) and finance's review of it.
+/// One per line per round: explaining again replaces it and asks for a new review.
+model BudgetComment {
+  id          String    @id @default(uuid()) @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  cycleId     String    @map("cycle_id") @db.Uuid
+  department  String
+  item        String
+  region      String
+  cause       String    @default("other")     // volume | price | timing | one_off | coding | other
+  explanation String
+  action      String    @default("")
+  status      String    @default("explained") // explained | reviewed | reopened
+  reply       String?
+  gap         Decimal   @default(0) @db.Decimal(16, 2) // year-to-date variance (+ favourable) when explained
+  asOf        String?   @map("as_of")                  // last month with actuals when explained
+  explainedBy String?   @map("explained_by") @db.Uuid
+  explainedAt DateTime  @default(now()) @map("explained_at")
+  reviewedBy  String?   @map("reviewed_by") @db.Uuid
+  reviewedAt  DateTime? @map("reviewed_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  tenant Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  cycle  BudgetCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@unique([cycleId, item, region])
+  @@index([tenantId, cycleId])
+  @@map("budget_comments")
 }

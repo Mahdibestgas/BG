@@ -7,7 +7,7 @@ import { useSession } from '../App';
 import { useI18n } from '../i18n';
 import { acc, date, m } from '../format';
 import { EMPTY_PLAN, EMPTY_STUDY, type DeptPlan, type Study } from '@cf13/budget';
-import { PlanEditor, StudyEditor, ToCashPlan } from './BudgetCycle';
+import { DeptVariance, PlanEditor, StudyEditor, ToCashPlan } from './BudgetCycle';
 import { CountUp, deptColor, Donut, HBars, MoneyFlow, MonthColumns } from '../ui/bgtCharts';
 
 // ---------------------------------------------------------------- shared
@@ -356,6 +356,7 @@ export function DeptBudget() {
         readiness={{ study: Object.values(study).filter((x) => x.trim()).length, studyOf: 5, vision: !!plan.vision.trim(), objectives: plan.objectives.length, risks: plan.risks.length, lines: all.length }} />
       <HowTo first={!d.submission} />
       <ApprovalTracker status={status} history={d.history || []} submittedAt={d.submission?.submittedAt || null} deadline={d.cycle.deadline} revision={d.submission?.revision || 1} />
+      {d.approvedRevision && <DeptVariance cycleId={cycleId} dept={dept} canEdit={s.me.role !== 'viewer'} />}
       {status === 'returned' && d.submission?.reviewComment && <div className="demo" role="note"><b>{T('Returned for changes: ', 'أعيدت للتعديل: ')}</b>{d.submission.reviewComment}</div>}
 
       <div className="an-kpis sm">

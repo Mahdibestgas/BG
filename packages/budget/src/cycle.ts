@@ -111,6 +111,39 @@ export function varianceRows(pack: Pack, monthKeys: string[], budgets: Array<{ b
 /** Favourable to the company: more revenue than budget, or less cost. */
 export const favourable = (kind: Item['kind'], budget: number, actual: number) => (kind === 'revenue' ? actual - budget : budget - actual);
 
+// ---------------------------------------------------------------- variance commentary
+/**
+ * A line (item and city) needs an explanation from its department when its year-to-date variance is at least
+ * 5% of budget and at least 5,000 SAR. A line with no budget needs one once it passes 5,000 SAR.
+ */
+export const EXPLAIN_RULE = { pct: 5, amount: 5000 };
+export function needsExplanation(budget: number, fav: number, rule = EXPLAIN_RULE): boolean {
+  const gap = Math.abs(fav);
+  if (gap < rule.amount) return false;
+  return !budget || (gap / Math.abs(budget)) * 100 >= rule.pct;
+}
+/** Why a line moved: the usual causes in a variance commentary. */
+export const CAUSES = ['volume', 'price', 'timing', 'one_off', 'coding', 'other'] as const;
+export type Cause = (typeof CAUSES)[number];
+export interface Commentary { cause: Cause; explanation: string; action: string }
+export function cleanCommentary(b: unknown): Commentary {
+  const t = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+  const o = (b && typeof b === 'object' ? b : {}) as Record<string, unknown>;
+  const cause = (CAUSES as readonly string[]).includes(o.cause as string) ? (o.cause as Cause) : 'other';
+  const explanation = t(o.explanation, 1500), action = t(o.action, 800);
+  if (!explanation) throw new BudgetError('required:explanation');
+  return { cause, explanation, action };
+}
+/** Year to date of one line: every month up to the last month that has actuals. */
+export function lineToDate(r: VarianceRow, monthKeys: string[], actualMonths: string[]) {
+  const last = actualMonths.length ? monthKeys.indexOf(actualMonths[actualMonths.length - 1]) : -1;
+  let budget = 0, actual = 0;
+  for (let i = 0; i <= last; i++) { budget += r.budget[i] || 0; actual += r.actual[i] || 0; }
+  budget = round2(budget); actual = round2(actual);
+  const fav = round2(favourable(r.kind, budget, actual));
+  return { budget, actual, fav, asOf: last >= 0 ? monthKeys[last] : null, needs: last >= 0 && needsExplanation(budget, fav) };
+}
+
 // ---------------------------------------------------------------- budget to cash plan
 const dayNum = (iso: string) => Math.round(Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +(iso.slice(8, 10) || '1')) / 86400000);
 const isoOf = (d: number) => new Date(d * 86400000).toISOString().slice(0, 10);

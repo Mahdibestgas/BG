@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Inject, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import {
-  BudgetError, budgetToCashPlan, cleanActuals, cleanParams, cleanRegions, cleanSubmission, consolidate, DEFAULT_PARAMS, deptOf, itemOf, monthKeys, packOf, readiness, sum, varianceRows,
+  BudgetError, budgetToCashPlan, cleanActuals, cleanCommentary, cleanParams, EXPLAIN_RULE, lineToDate, cleanRegions, cleanSubmission, consolidate, DEFAULT_PARAMS, deptOf, itemOf, monthKeys, packOf, readiness, sum, varianceRows,
   type HrParams, type Pack, type SubmissionBody
 } from '@cf13/budget';
 import { Prisma } from '@prisma/client';
@@ -352,7 +352,92 @@ export class BudgetController {
       const approved = await this.approved(tx, s.pack, id);
       const acts = await tx.budgetActual.findMany({ where: { cycleId: id } });
       const v = varianceRows(s.pack, keys, approved, acts.map((a) => ({ month: a.month, item: a.item, region: a.region, amount: Number(a.amount) })));
-      return { ok: true, cycle: { id: c.id, name: c.name, monthKeys: keys }, included: approved.map((a) => ({ department: a.dept, revision: a.revision })), ...v };
+      const comments = await this.comments(tx, id);
+      return { ok: true, cycle: { id: c.id, name: c.name, monthKeys: keys }, included: approved.map((a) => ({ department: a.dept, revision: a.revision })), ...v, comments, rule: EXPLAIN_RULE };
+    });
+  }
+
+  // ---------------------------------------------------------------- variance commentary
+  /** The round's explanations, with who wrote and who reviewed them. `dept` limits them to one department. */
+  private async comments(tx: Tx, cycleId: string, dept?: string) {
+    const list = await tx.budgetComment.findMany({ where: { cycleId, ...(dept ? { department: dept } : {}) }, orderBy: { explainedAt: 'desc' } });
+    const ids = [...new Set(list.flatMap((x) => [x.explainedBy, x.reviewedBy]).filter((x): x is string => !!x))];
+    const people = ids.length ? await tx.membership.findMany({ where: { accountId: { in: ids } }, include: { account: { select: { name: true } } } }) : [];
+    const who = (id: string | null) => people.find((p) => p.accountId === id)?.account.name ?? null;
+    return list.map((x) => ({
+      department: x.department, item: x.item, region: x.region, cause: x.cause, explanation: x.explanation, action: x.action, status: x.status,
+      reply: x.reply, gap: Number(x.gap), asOf: x.asOf, explainedBy: who(x.explainedBy), explainedAt: x.explainedAt, reviewedBy: who(x.reviewedBy), reviewedAt: x.reviewedAt
+    }));
+  }
+  private async lineNow(tx: Tx, pack: Pack, id: string, keys: string[], item: string, region: string) {
+    const approved = await this.approved(tx, pack, id);
+    const acts = await tx.budgetActual.findMany({ where: { cycleId: id, item, region } });
+    const v = varianceRows(pack, keys, approved, acts.map((a) => ({ month: a.month, item: a.item, region: a.region, amount: Number(a.amount) })));
+    // the year to date runs to the round's last month with any actual, not just this line's
+    const all = await tx.budgetActual.findMany({ where: { cycleId: id }, select: { month: true }, distinct: ['month'] });
+    const months = keys.filter((k) => all.some((a) => a.month === k));
+    const row = v.rows.find((r) => r.item === item && r.region === region);
+    return row ? lineToDate(row, keys, months) : null;
+  }
+
+  /** One department's budget against actual, year to date, line by line, with its explanations. Department heads see their own. */
+  @Get('cycles/:id/departments/:dept/variance') @Roles('owner', 'finance', 'contributor')
+  async deptVariance(@Context() ctx: Ctx, @Param('id') id: string, @Param('dept') dept: string) {
+    return this.db.inTenant(ctx.tenantId, async (tx) => {
+      const s = await this.settings(tx);
+      this.dept(ctx, s.pack, dept);
+      const c = await this.cycle(tx, id);
+      const keys = monthKeys(c.startMonth, c.months);
+      const approved = (await this.approved(tx, s.pack, id)).filter((a) => a.dept === dept);
+      const deptItems = new Set(s.pack.items.filter((i) => i.dept === dept).map((i) => i.id));
+      const acts = await tx.budgetActual.findMany({ where: { cycleId: id } });
+      const allMonths = keys.filter((k) => acts.some((a) => a.month === k));
+      const v = varianceRows(s.pack, keys, approved, acts.filter((a) => deptItems.has(a.item)).map((a) => ({ month: a.month, item: a.item, region: a.region, amount: Number(a.amount) })));
+      const rows = v.rows.map((r) => ({ ...r, toDate: lineToDate(r, keys, allMonths) })).filter((r) => r.toDate.budget || r.toDate.actual);
+      return { ok: true, cycle: { id: c.id, name: c.name, monthKeys: keys }, approved: approved.length > 0, actualMonths: allMonths, rows, comments: await this.comments(tx, id, dept), rule: EXPLAIN_RULE };
+    });
+  }
+
+  /** The department explains a line's variance: why it moved and what it will do. Explaining again asks for a new review. */
+  @Put('cycles/:id/commentary') @Roles('owner', 'finance', 'contributor')
+  async explain(@Context() ctx: Ctx, @Param('id') id: string, @Body() b: any) {
+    return this.db.inTenant(ctx.tenantId, async (tx) => {
+      const s = await this.settings(tx);
+      const it = itemOf(s.pack, str(b?.item, 'item', 80));
+      if (!it) throw new AppError('unknown_item');
+      this.dept(ctx, s.pack, it.dept);
+      const region = str(b?.region, 'region', 80);
+      if (region !== 'company' && !s.regions.some((r) => r.id === region)) throw new AppError('unknown_region');
+      const c = await this.cycle(tx, id);
+      let body;
+      try { body = cleanCommentary(b); } catch (e) { return asApp(e); }
+      const now = await this.lineNow(tx, s.pack, id, monthKeys(c.startMonth, c.months), it.id, region);
+      if (!now || !now.asOf) throw new AppError('no_actuals', 409);
+      const data = { ...body, status: 'explained', reply: null, reviewedBy: null, reviewedAt: null, gap: now.fav, asOf: now.asOf, explainedBy: ctx.accountId, explainedAt: new Date() };
+      await tx.budgetComment.upsert({
+        where: { cycleId_item_region: { cycleId: id, item: it.id, region } },
+        create: { tenantId: ctx.tenantId, cycleId: id, department: it.dept, item: it.id, region, ...data },
+        update: data
+      });
+      await this.audit(tx, ctx, 'budget_variance_explained', id, { department: it.dept, item: it.id, region, cause: body.cause, gap: now.fav, asOf: now.asOf });
+      return { ok: true, comments: await this.comments(tx, id, it.dept) };
+    });
+  }
+
+  /** Finance or the owner reviews an explanation: accept it, or send it back with a question. */
+  @Post('cycles/:id/commentary/review') @Roles('owner', 'finance')
+  async reviewComment(@Context() ctx: Ctx, @Param('id') id: string, @Body() b: any) {
+    return this.db.inTenant(ctx.tenantId, async (tx) => {
+      await this.cycle(tx, id);
+      const item = str(b?.item, 'item', 80), region = str(b?.region, 'region', 80);
+      const status = b?.status === 'reopened' ? 'reopened' : 'reviewed';
+      const reply = typeof b?.reply === 'string' ? b.reply.trim().slice(0, 800) : '';
+      if (status === 'reopened' && !reply) throw new AppError('required:reply');
+      const x = await tx.budgetComment.findUnique({ where: { cycleId_item_region: { cycleId: id, item, region } } });
+      if (!x) throw new AppError('not_found', 404);
+      await tx.budgetComment.update({ where: { id: x.id }, data: { status, reply: reply || null, reviewedBy: ctx.accountId, reviewedAt: new Date() } });
+      await this.audit(tx, ctx, 'budget_variance_' + status, id, { department: x.department, item, region });
+      return { ok: true, comments: await this.comments(tx, id) };
     });
   }
 

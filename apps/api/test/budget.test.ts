@@ -203,6 +203,43 @@ test('budget against actual uses only approved departments and the months that h
   assert.ok(fuel, 'an actual with no budget still shows'); assert.equal(fuel.actual[0], 7000);
 });
 
+test('variance commentary: each head explains only their own lines, finance accepts or asks again, other companies see nothing', async () => {
+  const dv = `/api/budget/cycles/${cycle}/departments/operations/variance`;
+  assert.equal((await HR.call('GET', dv)).status, 403, 'HR cannot see operations');
+  let r = await OPS.call('GET', dv);
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  const fuel = r.body.rows.find((x: any) => x.item === 'op_fuel' && x.region === 'riyadh');
+  const t = fuel?.toDate; assert.ok(t && t.needs, 'a big underspend needs an explanation too'); assert.equal(t.fav, t.budget - 7000); assert.ok(t.fav > 0); assert.equal(t.asOf, '2027-01'); assert.equal(fuel.budget.length, 12, 'monthly figures stay as they are');
+  const c = `/api/budget/cycles/${cycle}/commentary`;
+  const body = { item: 'op_fuel', region: 'riyadh', cause: 'price', explanation: 'Diesel price rose in January.', action: 'Fuel cards from February.' };
+  assert.equal((await HR.call('PUT', c, body)).status, 403, 'a head cannot explain another department');
+  r = await OPS.call('PUT', c, { ...body, explanation: '  ' });
+  assert.equal(r.status, 400); assert.equal(r.body.error, 'required:explanation');
+  r = await OPS.call('PUT', c, { ...body, region: 'mars' }); assert.equal(r.body.error, 'unknown_region');
+  r = await OPS.call('PUT', c, body);
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.comments.length, 1); assert.equal(r.body.comments[0].status, 'explained'); assert.equal(r.body.comments[0].gap, t.fav); assert.equal(r.body.comments[0].explainedBy, 'Head contributor');
+  const rv = c + '/review';
+  assert.equal((await OPS.call('POST', rv, { item: 'op_fuel', region: 'riyadh', status: 'reviewed' })).status, 403, 'a head cannot review');
+  r = await O.call('POST', rv, { item: 'op_fuel', region: 'riyadh', status: 'reopened' });
+  assert.equal(r.status, 400, 'asking again needs a question');
+  r = await O.call('POST', rv, { item: 'op_fuel', region: 'riyadh', status: 'reopened', reply: 'How much of it is price?' });
+  assert.equal(r.status, 201); assert.equal(r.body.comments[0].status, 'reopened');
+  r = await OPS.call('PUT', c, { ...body, explanation: 'All of it: 8% price rise.' });
+  assert.equal(r.body.comments[0].status, 'explained'); assert.equal(r.body.comments[0].reply, null, 'explaining again asks for a fresh review');
+  r = await O.call('POST', rv, { item: 'op_fuel', region: 'riyadh', status: 'reviewed', reply: 'Agreed.' });
+  assert.equal(r.body.comments[0].status, 'reviewed');
+  r = await O.call('GET', `/api/budget/cycles/${cycle}/variance`);
+  assert.equal(r.body.comments.length, 1); assert.equal(r.body.rule.pct, 5);
+  r = await O.call('GET', `/api/budget/cycles/${cycle}/departments/hr/variance`);
+  assert.equal(r.body.comments.length, 0, 'each department sees only its own explanations');
+  const n = await asApp.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantX}, true)`;
+    return tx.$queryRawUnsafe<Array<{ c: bigint }>>('SELECT count(*)::bigint AS c FROM budget_comments');
+  });
+  assert.equal(Number(n[0].c), 0, 'the database hides the explanations from another company');
+});
+
 test('the approved budget becomes a cash plan: owner only, checked by the engine, a second run is a new version', async () => {
   const p = `/api/budget/cycles/${cycle}/to-plan`;
   assert.equal((await HR.call('POST', p, { openingCash: 100000 })).status, 403);

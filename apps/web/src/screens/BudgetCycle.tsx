@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Loading } from '../ui/Loading';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { favourable, STUDY_FIELDS, type DeptPlan, type Kind, type Study } from '@cf13/budget';
+import { CAUSES, favourable, lineToDate, STUDY_FIELDS, type DeptPlan, type Kind, type Study } from '@cf13/budget';
 import { api, ApiError } from '../api';
 import { useSession } from '../App';
 import { useI18n } from '../i18n';
@@ -166,7 +166,7 @@ export function BudgetActuals() {
 }
 
 // ---------------------------------------------------------------- budget against actual
-interface VarData { cycle: { id: string; name: string; monthKeys: string[] }; included: Array<{ department: string; revision: number }>; rows: Array<{ item: string; dept: string; kind: Kind; region: string; budget: number[]; actual: number[] }>; actualMonths: string[] }
+interface VarData { cycle: { id: string; name: string; monthKeys: string[] }; included: Array<{ department: string; revision: number }>; rows: Array<{ item: string; dept: string; kind: Kind; region: string; budget: number[]; actual: number[] }>; actualMonths: string[]; comments?: Comment[]; rule?: { pct: number; amount: number } }
 type Group = 'item' | 'line' | 'dept' | 'city';
 const SECTIONS: Array<{ id: string; kinds: Kind[]; en: string; ar: string }> = [
   { id: 'rev', kinds: ['revenue'], en: 'Revenue', ar: 'الإيرادات' },
@@ -213,6 +213,10 @@ export function BudgetVariance() {
     ['section', 'line', 'budget', 'actual', 'variance (+ favourable)', 'variance %'],
     ...sections.flatMap((s) => s.list.map((g) => [s.en, g.label, g.budget.toFixed(2), g.actual.toFixed(2), g.fav.toFixed(2), g.budget ? ((g.fav / Math.abs(g.budget)) * 100).toFixed(1) : '']))
   ]);
+  const csvNotes = () => download(`variance-commentary-${d.cycle.name.replace(/\s+/g, '-')}.csv`, [
+    ['department', 'item', 'city', 'variance to date (+ favourable)', 'to month', 'cause', 'explanation', 'action', 'status', 'finance reply', 'explained by'],
+    ...(d.comments || []).map((c) => [deptName(c.department), txt(itemOf(c.item)?.name) || c.item, c.region === 'company' ? T('Whole company', 'الشركة كاملة') : cityName(c.region), c.gap.toFixed(2), c.asOf || '', c.cause, c.explanation, c.action, c.status, c.reply || '', c.explainedBy || ''])
+  ]);
   const periodText = period === 'ytd' ? (last >= 0 ? T('Year to date, to ', 'منذ بداية العام حتى ') + monthLabel(keys[last], lang) : T('Year to date', 'منذ بداية العام')) : period === 'full' ? T('Whole round', 'الدورة كاملة') : monthLabel(period, lang);
   const Fav = ({ v }: { v: number }) => <span className={v > 0.5 ? 'up' : v < -0.5 ? 'down' : ''}>{acc(v)}</span>;
 
@@ -225,6 +229,7 @@ export function BudgetVariance() {
           {!params.cycle && meta.cycles.length > 1 && <select className="pill" value={cycleId} onChange={(x) => setPick(x.target.value)} aria-label={T('Budget round', 'دورة الميزانية')}>{meta.cycles.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>}
           <Link className="btn ghost" to={`/budget/${cycleId}/actuals`}>{T('Load actuals', 'تحميل الفعلي')}</Link>
           <button type="button" className="btn ghost" onClick={csv}>{T('Download CSV', 'تنزيل CSV')}</button>
+          {(d.comments || []).length > 0 && <button type="button" className="btn ghost" onClick={csvNotes}>{T('Commentary CSV', 'تعليقات CSV')}</button>}
         </div>
       </div>
       {!d.actualMonths.length && <div className="demo" role="note">{T('No actuals loaded yet. ', 'لم يُحمّل أي فعلي بعد. ')}<Link className="link" to={`/budget/${cycleId}/actuals`}>{T('Load the first month', 'حمّل أول شهر')}</Link></div>}
@@ -266,6 +271,7 @@ export function BudgetVariance() {
         </section>
       ))}
       <MonthTrend d={d} rows={rows} />
+      {d.actualMonths.length > 0 && <CommentaryBoard d={d} onChange={(c) => setD({ ...d, comments: c })} />}
     </div>
   );
 }
@@ -415,6 +421,159 @@ function Outlook({ d, rows }: { d: VarData; rows: VarData['rows'] }) {
         <div key={c.l} className={'an-kpi ' + (fav >= 0 ? 't-rec' : 't-pay')}><span className="l">{c.l}</span><span className="v num">{m(c.o)}</span>
           <span className="s">{T('budget ', 'الميزانية ')}{m(c.b)} · <b className={fav >= 0 ? 'up' : 'down'}>{fav >= 0 ? '+' : '−'}{m(Math.abs(fav))}</b></span></div>); })}</div>
       <BudgetActualLines months={keys.map((k) => monthLabel(k, lang))} budget={cum(monthNet('budget'))} actual={cum(monthNet('outlook')).map((v, i) => (i <= lastA ? v : v))} labels={{ budget: T('Budget EBITDA, running total', 'EBITDA الميزانية تراكميًا'), actual: T('Outlook, running total', 'التوقع تراكميًا') }} />
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------- variance commentary
+export interface Comment { department: string; item: string; region: string; cause: string; explanation: string; action: string; status: 'explained' | 'reviewed' | 'reopened'; reply: string | null; gap: number; asOf: string | null; explainedBy: string | null; explainedAt: string; reviewedBy: string | null; reviewedAt: string | null }
+type VRow = VarData['rows'][number];
+type State = 'missing' | 'stale' | 'asked' | 'waiting' | 'reviewed' | 'ok';
+const CAUSE_TEXT: Record<string, [string, string]> = {
+  volume: ['Volume: more or fewer units', 'الكمية: وحدات أكثر أو أقل'], price: ['Price or rate', 'السعر أو التعرفة'], timing: ['Timing: earlier or later than planned', 'التوقيت: أبكر أو أتأخر من الخطة'],
+  one_off: ['One-off event', 'حدث لمرة واحدة'], coding: ['Posted to the wrong item or city', 'قيد على بند أو مدينة خطأ'], other: ['Other', 'أخرى']
+};
+/** Where a line stands: a big gap with no explanation, an explanation older than the latest actuals, a question back, waiting for review, or done. */
+function stateOf(needs: boolean, c: Comment | undefined, asOf: string | null): State {
+  if (c?.status === 'reopened') return 'asked';
+  if (!c) return needs ? 'missing' : 'ok';
+  if (needs && c.asOf !== asOf) return 'stale';
+  return c.status === 'reviewed' ? 'reviewed' : 'waiting';
+}
+function StatePill({ s }: { s: State }) {
+  const T = useT();
+  const map: Record<State, [string, string, string]> = {
+    missing: ['bad', 'Explanation needed', 'يحتاج تفسيرًا'], stale: ['warn', 'Update for new actuals', 'حدّث للفعلي الجديد'], asked: ['bad', 'Finance asked again', 'المالية طلبت توضيحًا'],
+    waiting: ['', 'Waiting for review', 'بانتظار المراجعة'], reviewed: ['ok', 'Reviewed', 'تمت المراجعة'], ok: ['', 'Within tolerance', 'ضمن الحد']
+  };
+  const [cls, en, ar] = map[s];
+  return <span className={'pill ' + cls}>{T(en, ar)}</span>;
+}
+
+/**
+ * The department head's side: every line of their approved budget against actual to date. A line whose gap passes
+ * the tolerance asks for a cause, an explanation and an action; finance's reply comes back here.
+ */
+export function DeptVariance({ cycleId, dept, canEdit }: { cycleId: string; dept: string; canEdit: boolean }) {
+  const { lang, txt, err } = useI18n(); const T = useT();
+  const { meta } = useBudgetMeta();
+  type DV = { cycle: { monthKeys: string[] }; approved: boolean; actualMonths: string[]; rows: VRow[]; comments: Comment[]; rule: { pct: number; amount: number } };
+  const [d, setD] = useState<DV | null>(null), [open, setOpen] = useState(''), [all, setAll] = useState(false), [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
+  useEffect(() => { api<any>('GET', `/api/budget/cycles/${cycleId}/departments/${dept}/variance`).then(setD).catch(() => setD(null)); }, [cycleId, dept]);
+  if (!d || !meta || !d.approved || !d.actualMonths.length) return null;
+  const keys = d.cycle.monthKeys, asOf = d.actualMonths[d.actualMonths.length - 1];
+  const lines = d.rows.map((r) => {
+    const t = lineToDate(r, keys, d.actualMonths);
+    const c = d.comments.find((x) => x.item === r.item && x.region === r.region);
+    return { r, t, c, s: stateOf(t.needs, c, t.asOf) };
+  });
+  const rank: Record<State, number> = { asked: 0, missing: 1, stale: 2, waiting: 3, reviewed: 4, ok: 5 };
+  lines.sort((a, b) => rank[a.s] - rank[b.s] || Math.abs(b.t.fav) - Math.abs(a.t.fav));
+  const todo = lines.filter((l) => l.s === 'missing' || l.s === 'stale' || l.s === 'asked').length;
+  const shown = all ? lines : lines.filter((l) => l.s !== 'ok');
+  const name = (l: typeof lines[number]) => (txt(meta.pack.items.find((i) => i.id === l.r.item)?.name) || l.r.item) + ' · ' + (l.r.region === 'company' ? T('Whole company', 'الشركة كاملة') : txt(meta.regions.find((x) => x.id === l.r.region)?.name) || l.r.region);
+  return (
+    <section className="card vc" style={{ marginTop: 20 }}>
+      <div className="vc-head">
+        <div><h2>{T('Your budget against actual', 'ميزانيتك مقابل الفعلي')}</h2>
+          <p className="sub">{T('Year to date, to ', 'منذ بداية العام حتى ')}{monthLabel(asOf, lang)}. {T(`Explain every line that is off by ${d.rule.pct}% and ${m(d.rule.amount)} or more: why it moved and what you will do.`, `فسّر كل سطر ابتعد ${d.rule.pct}% و${m(d.rule.amount)} أو أكثر: لماذا تغيّر وماذا ستفعل.`)}</p></div>
+        <div className={'vc-todo' + (todo ? ' on' : '')}><b className="num">{todo}</b><span>{todo ? T('to explain', 'بحاجة لتفسير') : T('all explained', 'كلها مفسّرة')}</span></div>
+      </div>
+      {msg && <p className={'msg ' + (msg.ok ? 'ok' : 'err')}>{msg.t}</p>}
+      {shown.length === 0 && <p className="empty">{T('Every line is within tolerance. Nothing to explain this month.', 'كل السطور ضمن الحد. لا شيء يحتاج تفسيرًا هذا الشهر.')}</p>}
+      <ul className="vc-list">{shown.map((l) => {
+        const k = l.r.item + '|' + l.r.region;
+        return <li key={k} className={'vc-row s-' + l.s}>
+          <div className="vc-line">
+            <span className="vc-name">{name(l)}</span>
+            <span className="num sub">{T('budget ', 'الميزانية ')}{m(l.t.budget)} · {T('actual ', 'الفعلي ')}{m(l.t.actual)}</span>
+            <b className={'num ' + (l.t.fav > 0.5 ? 'up' : l.t.fav < -0.5 ? 'down' : '')}>{acc(l.t.fav)} <span className="sub">{pct(l.t.fav, l.t.budget)}</span></b>
+            <StatePill s={l.s} />
+            {canEdit && <button type="button" className="link" onClick={() => setOpen(open === k ? '' : k)}>{open === k ? T('Close', 'إغلاق') : l.c ? T('Edit explanation', 'عدّل التفسير') : T('Explain', 'فسّر')}</button>}
+          </div>
+          {l.c && open !== k && <div className="vc-note"><span className="pill">{T(...(CAUSE_TEXT[l.c.cause] || CAUSE_TEXT.other))}</span> {l.c.explanation}{l.c.action && <><br /><b>{T('Action: ', 'الإجراء: ')}</b>{l.c.action}</>}
+            <span className="sub vc-by">{l.c.explainedBy ? l.c.explainedBy + ' · ' : ''}{T('to ', 'حتى ')}{l.c.asOf ? monthLabel(l.c.asOf, lang) : ''}</span></div>}
+          {l.c?.reply && <div className={'vc-reply' + (l.c.status === 'reopened' ? ' ask' : '')}><b>{l.c.status === 'reopened' ? T('Finance asks: ', 'المالية تسأل: ') : T('Finance: ', 'المالية: ')}</b>{l.c.reply}{l.c.reviewedBy ? <span className="sub"> · {l.c.reviewedBy}</span> : null}</div>}
+          {open === k && <ExplainForm c={l.c} onSave={async (body) => {
+            try { const r = await api<{ comments: Comment[] }>('PUT', `/api/budget/cycles/${cycleId}/commentary`, { item: l.r.item, region: l.r.region, ...body }); setD({ ...d, comments: r.comments }); setOpen(''); setMsg({ ok: true, t: T('Explanation saved. Finance will review it.', 'حُفظ التفسير. ستراجعه المالية.') }); }
+            catch (e) { setMsg({ ok: false, t: err(e instanceof ApiError ? e.code : 'network') }); }
+          }} />}
+        </li>;
+      })}</ul>
+      {lines.some((l) => l.s === 'ok') && <button type="button" className="link" onClick={() => setAll(!all)}>{all ? T('Show only lines that need attention', 'اعرض السطور التي تحتاج انتباهًا فقط') : T(`Show all ${lines.length} lines`, `اعرض كل السطور (${lines.length})`)}</button>}
+    </section>
+  );
+}
+function ExplainForm({ c, onSave }: { c?: Comment; onSave: (b: { cause: string; explanation: string; action: string }) => Promise<void> }) {
+  const T = useT();
+  const [cause, setCause] = useState(c?.cause || 'volume'), [ex, setEx] = useState(c?.explanation || ''), [ac, setAc] = useState(c?.action || ''), [busy, setBusy] = useState(false);
+  return (
+    <div className="vc-form">
+      <label>{T('Main cause', 'السبب الرئيسي')}<select value={cause} onChange={(e) => setCause(e.target.value)}>{CAUSES.map((x) => <option key={x} value={x}>{T(...CAUSE_TEXT[x])}</option>)}</select></label>
+      <label>{T('What happened', 'ماذا حدث')}<textarea rows={3} maxLength={1500} value={ex} onChange={(e) => setEx(e.target.value)} placeholder={T('For example: two stations opened in March instead of January, so sales started later.', 'مثال: افتُتحت محطتان في مارس بدل يناير فبدأت المبيعات متأخرة.')} /></label>
+      <label>{T('What you will do (optional)', 'ماذا ستفعل (اختياري)')}<textarea rows={2} maxLength={800} value={ac} onChange={(e) => setAc(e.target.value)} placeholder={T('For example: catch up by June; no change to the full-year budget.', 'مثال: نعوّض بحلول يونيو؛ دون تغيير ميزانية السنة.')} /></label>
+      <div className="actions"><button type="button" className="btn" disabled={busy || !ex.trim()} onClick={async () => { setBusy(true); await onSave({ cause, explanation: ex, action: ac }); setBusy(false); }}>{T('Save explanation', 'احفظ التفسير')}</button></div>
+    </div>
+  );
+}
+
+/** Finance's side: every line past the tolerance across departments, its explanation, and accept or ask again. */
+function CommentaryBoard({ d, onChange }: { d: VarData; onChange: (c: Comment[]) => void }) {
+  const { lang, txt, err } = useI18n(); const T = useT();
+  const { meta } = useBudgetMeta();
+  const s = useSession();
+  const [reply, setReply] = useState<Record<string, string>>({}), [f, setF] = useState<'open' | 'all'>('open'), [msg, setMsg] = useState('');
+  if (!meta) return null;
+  const canReview = s.me.role === 'owner' || s.me.role === 'finance';
+  const comments = d.comments || [];
+  const lines = d.rows.map((r) => { const t = lineToDate(r, d.cycle.monthKeys, d.actualMonths); const c = comments.find((x) => x.item === r.item && x.region === r.region); return { r, t, c, s: stateOf(t.needs, c, t.asOf) }; })
+    .filter((l) => l.s !== 'ok').sort((a, b) => Math.abs(b.t.fav) - Math.abs(a.t.fav));
+  const count = (st: State[]) => lines.filter((l) => st.includes(l.s)).length;
+  const done = count(['reviewed']), total = lines.length;
+  const shown = f === 'open' ? lines.filter((l) => l.s !== 'reviewed') : lines;
+  const itemName = (id: string) => txt(meta.pack.items.find((i) => i.id === id)?.name) || id;
+  const deptName = (id: string) => txt(meta.pack.allDepartments.find((x) => x.id === id)?.name) || id;
+  const cityName = (id: string) => (id === 'company' ? T('Whole company', 'الشركة كاملة') : txt(meta.regions.find((x) => x.id === id)?.name) || id);
+  const act = async (item: string, region: string, status: 'reviewed' | 'reopened') => {
+    const k = item + '|' + region;
+    try { const r = await api<{ comments: Comment[] }>('POST', `/api/budget/cycles/${d.cycle.id}/commentary/review`, { item, region, status, reply: reply[k] || '' }); onChange(r.comments); setReply({ ...reply, [k]: '' }); setMsg(''); }
+    catch (e) { setMsg(err(e instanceof ApiError ? e.code : 'network')); }
+  };
+  return (
+    <section className="card vc" style={{ marginTop: 20 }}>
+      <div className="vc-head">
+        <div><h2>{T('Variance commentary', 'تفسير الانحرافات')}</h2>
+          <p className="sub">{T(`Lines off by ${d.rule?.pct ?? 5}% and ${m(d.rule?.amount ?? 5000)} or more, year to date. Each department explains its own; you accept or ask again.`, `السطور التي ابتعدت ${d.rule?.pct ?? 5}% و${m(d.rule?.amount ?? 5000)} أو أكثر منذ بداية العام. كل إدارة تفسّر سطورها؛ وأنت تقبل أو تطلب توضيحًا.`)}</p></div>
+        <div className="seg" role="group" aria-label={T('Show', 'العرض')}><button type="button" aria-pressed={f === 'open'} onClick={() => setF('open')}>{T('Open', 'المفتوحة')}</button><button type="button" aria-pressed={f === 'all'} onClick={() => setF('all')}>{T('All', 'الكل')}</button></div>
+      </div>
+      <div className="vc-meter" aria-label={T('Reviewed', 'تمت المراجعة')}><i style={{ width: (total ? (done / total) * 100 : 100) + '%' }} /></div>
+      <div className="vc-counts">
+        <span><b className="num">{count(['missing', 'stale'])}</b> {T('not explained', 'بلا تفسير')}</span>
+        <span><b className="num">{count(['asked'])}</b> {T('asked again', 'طُلب توضيحها')}</span>
+        <span><b className="num">{count(['waiting'])}</b> {T('waiting for you', 'بانتظارك')}</span>
+        <span><b className="num">{done}</b> / {total} {T('reviewed', 'تمت مراجعتها')}</span>
+      </div>
+      {msg && <p className="msg err">{msg}</p>}
+      {shown.length === 0 && <p className="empty">{total ? T('Every explanation is reviewed.', 'تمت مراجعة كل التفسيرات.') : T('No line is past the tolerance. Nothing to explain.', 'لا يوجد سطر تجاوز الحد. لا شيء يحتاج تفسيرًا.')}</p>}
+      <ul className="vc-list">{shown.map((l) => {
+        const k = l.r.item + '|' + l.r.region;
+        return <li key={k} className={'vc-row s-' + l.s}>
+          <div className="vc-line">
+            <span className="vc-name">{itemName(l.r.item)} · {cityName(l.r.region)} <span className="sub">· {deptName(l.r.dept)}</span></span>
+            <span className="num sub">{T('budget ', 'الميزانية ')}{m(l.t.budget)} · {T('actual ', 'الفعلي ')}{m(l.t.actual)}</span>
+            <b className={'num ' + (l.t.fav > 0.5 ? 'up' : 'down')}>{acc(l.t.fav)} <span className="sub">{pct(l.t.fav, l.t.budget)}</span></b>
+            <StatePill s={l.s} />
+          </div>
+          {l.c && <div className="vc-note"><span className="pill">{T(...(CAUSE_TEXT[l.c.cause] || CAUSE_TEXT.other))}</span> {l.c.explanation}{l.c.action && <><br /><b>{T('Action: ', 'الإجراء: ')}</b>{l.c.action}</>}
+            <span className="sub vc-by">{l.c.explainedBy || ''}{l.c.asOf ? ' · ' + T('to ', 'حتى ') + monthLabel(l.c.asOf, lang) : ''}{l.s === 'stale' ? ' · ' + T('actuals have moved since', 'تغيّر الفعلي بعدها') : ''}</span></div>}
+          {l.c?.reply && <div className={'vc-reply' + (l.c.status === 'reopened' ? ' ask' : '')}><b>{l.c.status === 'reopened' ? T('You asked: ', 'سألت: ') : T('Your note: ', 'ملاحظتك: ')}</b>{l.c.reply}</div>}
+          {canReview && l.c && l.s !== 'reviewed' && l.s !== 'asked' && <div className="vc-act">
+            <input value={reply[k] || ''} maxLength={800} onChange={(e) => setReply({ ...reply, [k]: e.target.value })} placeholder={T('Note or question (needed to ask again)', 'ملاحظة أو سؤال (مطلوب لطلب التوضيح)')} aria-label={T('Reply', 'الرد')} />
+            <button type="button" className="btn" onClick={() => act(l.r.item, l.r.region, 'reviewed')}>{T('Accept', 'قبول')}</button>
+            <button type="button" className="btn ghost" disabled={!(reply[k] || '').trim()} onClick={() => act(l.r.item, l.r.region, 'reopened')}>{T('Ask again', 'اطلب توضيحًا')}</button>
+          </div>}
+        </li>;
+      })}</ul>
     </section>
   );
 }

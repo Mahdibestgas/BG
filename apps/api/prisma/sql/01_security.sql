@@ -55,6 +55,7 @@ SELECT apply_tenant_rls('budget_settings', 'tenant_id');
 SELECT apply_tenant_rls('budget_cycles', 'tenant_id');
 SELECT apply_tenant_rls('budget_submissions', 'tenant_id');
 SELECT apply_tenant_rls('budget_actuals', 'tenant_id');
+SELECT apply_tenant_rls('budget_comments', 'tenant_id');
 
 -- Sign-in happens before a company is chosen: this is the one way to learn
 -- which companies an account belongs to. It returns only that account's rows.

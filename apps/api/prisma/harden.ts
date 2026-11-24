@@ -18,7 +18,7 @@ async function main() {
     const [me] = await db.$queryRawUnsafe<Array<{ rolsuper: boolean }>>('SELECT rolsuper FROM pg_roles WHERE rolname = current_user');
     await db.$executeRawUnsafe(`ALTER ROLE cf13_app WITH LOGIN PASSWORD '${pw}'${me?.rolsuper ? ' NOSUPERUSER NOBYPASSRLS' : ''}`);
     const rls = await db.$queryRawUnsafe<Array<{ relname: string; forced: boolean }>>(
-      `SELECT relname, relforcerowsecurity AS forced FROM pg_class WHERE relname IN ('tenants','memberships','branding','plans','audit','api_keys','invitations','budget_settings','budget_cycles','budget_submissions','budget_actuals') ORDER BY relname`);
+      `SELECT relname, relforcerowsecurity AS forced FROM pg_class WHERE relname IN ('tenants','memberships','branding','plans','audit','api_keys','invitations','budget_settings','budget_cycles','budget_submissions','budget_actuals','budget_comments') ORDER BY relname`);
     console.log('row-level security forced on:', rls.filter((r) => r.forced).map((r) => r.relname).join(', '));
   } finally {
     await db.$disconnect();

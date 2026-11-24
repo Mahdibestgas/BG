@@ -118,3 +118,17 @@ test('whole-company lines and the full catalogue: every department has its items
   for (const i of KSA_LPG.items) assert.match(i.cash, known, i.id + ' maps to a known cash category');
   for (const i of KSA_LPG.items.filter((x) => x.kind !== 'noncash' && !x.cash)) assert.ok(['op_cylinder_loss', 'pr_gas_loss'].includes(i.id), i.id + ' has no cash effect on purpose');
 });
+
+test('variance commentary: the tolerance is 5% and 5,000 SAR, year to date runs to the last month with actuals', async () => {
+  const { needsExplanation, lineToDate, cleanCommentary } = await import('../src/index');
+  assert.equal(needsExplanation(100000, -4999), false, 'under 5,000 never needs one');
+  assert.equal(needsExplanation(200000, -9000), false, '4.5% is inside the tolerance');
+  assert.equal(needsExplanation(100000, 5000), true, 'favourable gaps are explained too');
+  assert.equal(needsExplanation(0, -6000), true, 'spend with no budget');
+  const row = { item: 'op_fuel', dept: 'operations', kind: 'opex' as const, region: 'riyadh', budget: [10000, 10000, 10000], actual: [12000, 13000, 0] };
+  const t = lineToDate(row, ['2027-01', '2027-02', '2027-03'], ['2027-01', '2027-02']);
+  assert.deepEqual(t, { budget: 20000, actual: 25000, fav: -5000, asOf: '2027-02', needs: true });
+  assert.equal(lineToDate(row, ['2027-01', '2027-02', '2027-03'], []).needs, false, 'no actuals, nothing to explain');
+  assert.equal(cleanCommentary({ cause: 'weird', explanation: ' x ' }).cause, 'other');
+  assert.throws(() => cleanCommentary({ explanation: '' }));
+});
