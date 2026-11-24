@@ -85,7 +85,8 @@ export function cleanActuals(rows: unknown, pack: Pack, monthKeys: string[], reg
     const item = itemOf(pack, typeof r?.item === 'string' ? r.item.trim() : '');
     if (!item) throw new BudgetError('unknown_item:' + at);
     const region = typeof r?.region === 'string' ? r.region.trim() : '';
-    if (!regions.includes(region)) throw new BudgetError('unknown_region:' + at);
+    // 'company' matches budget lines kept for the whole company
+    if (region !== 'company' && !regions.includes(region)) throw new BudgetError('unknown_region:' + at);
     const n = optNum(r?.amount, at + '.amount');
     if (n === null) throw new BudgetError('invalid_number:' + at + '.amount');
     return { month, item: item.id, region, amount: n };

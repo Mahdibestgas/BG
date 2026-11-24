@@ -228,6 +228,7 @@ export function BudgetVariance() {
         </div>
       </div>
       {!d.actualMonths.length && <div className="demo" role="note">{T('No actuals loaded yet. ', 'لم يُحمّل أي فعلي بعد. ')}<Link className="link" to={`/budget/${cycleId}/actuals`}>{T('Load the first month', 'حمّل أول شهر')}</Link></div>}
+      {d.actualMonths.length > 0 && <Outlook d={d} rows={rows} />}
       <div className="bgt-filters">
         <select className="pill" value={period} onChange={(x) => setPeriod(x.target.value)} aria-label={T('Period', 'الفترة')}>
           <option value="ytd">{T('Year to date', 'منذ بداية العام')}</option><option value="full">{T('Whole round', 'الدورة كاملة')}</option>
@@ -383,5 +384,37 @@ export function ComparePlans() {
         </section>
       </>}
     </div>
+  );
+}
+
+/**
+ * Full-year outlook, the rolling reforecast: months with actuals count as actual, the rest as budget. It answers
+ * where the year will land if the remaining months go to plan.
+ */
+function Outlook({ d, rows }: { d: VarData; rows: VarData['rows'] }) {
+  const { lang } = useI18n();
+  const T = (en: string, ar: string) => (lang === 'ar' ? ar : en);
+  const keys = d.cycle.monthKeys, has = (k: string) => d.actualMonths.includes(k);
+  const kinds = { rev: ['revenue'], cost: ['cogs', 'opex', 'financing', 'noncash'], capex: ['capex'] } as Record<string, string[]>;
+  const tot = (which: 'budget' | 'outlook', ks: string[]) => sum(rows.filter((r) => ks.includes(r.kind)).map((r) => sum(keys.map((k, i) => (which === 'outlook' && has(k) ? r.actual[i] || 0 : r.budget[i] || 0)))));
+  const ebitda = (which: 'budget' | 'outlook') => tot(which, ['revenue']) - tot(which, ['cogs', 'opex']);
+  const monthNet = (which: 'budget' | 'outlook') => keys.map((k, i) => sum(rows.filter((r) => ['revenue', 'cogs', 'opex'].includes(r.kind)).map((r) => (r.kind === 'revenue' ? 1 : -1) * (which === 'outlook' && has(k) ? r.actual[i] || 0 : r.budget[i] || 0))));
+  const cum = (a: number[]) => a.map((_, i) => sum(a.slice(0, i + 1)));
+  const lastA = Math.max(...keys.map((k, i) => (has(k) ? i : -1)));
+  const cards = [
+    { l: T('Revenue', 'الإيرادات'), b: tot('budget', kinds.rev), o: tot('outlook', kinds.rev), up: true },
+    { l: T('Costs', 'التكاليف'), b: tot('budget', kinds.cost), o: tot('outlook', kinds.cost), up: false },
+    { l: 'EBITDA', b: ebitda('budget'), o: ebitda('outlook'), up: true },
+    { l: T('Capex', 'الرأسمالية'), b: tot('budget', kinds.capex), o: tot('outlook', kinds.capex), up: false }
+  ];
+  return (
+    <section className="card" style={{ marginTop: 16 }}>
+      <h2>{T('Full-year outlook', 'توقع السنة كاملة')}</h2>
+      <p className="sub">{T(`${d.actualMonths.length} months of actuals plus the budget for the remaining ${keys.length - d.actualMonths.length}. Where the year lands if the rest goes to plan.`, `${d.actualMonths.length} أشهر فعلية مع ميزانية الأشهر ${keys.length - d.actualMonths.length} المتبقية. أين ستنتهي السنة إذا سار الباقي حسب الخطة.`)}</p>
+      <div className="an-kpis">{cards.map((c) => { const fav = c.up ? c.o - c.b : c.b - c.o; return (
+        <div key={c.l} className={'an-kpi ' + (fav >= 0 ? 't-rec' : 't-pay')}><span className="l">{c.l}</span><span className="v num">{m(c.o)}</span>
+          <span className="s">{T('budget ', 'الميزانية ')}{m(c.b)} · <b className={fav >= 0 ? 'up' : 'down'}>{fav >= 0 ? '+' : '−'}{m(Math.abs(fav))}</b></span></div>); })}</div>
+      <BudgetActualLines months={keys.map((k) => monthLabel(k, lang))} budget={cum(monthNet('budget'))} actual={cum(monthNet('outlook')).map((v, i) => (i <= lastA ? v : v))} labels={{ budget: T('Budget EBITDA, running total', 'EBITDA الميزانية تراكميًا'), actual: T('Outlook, running total', 'التوقع تراكميًا') }} />
+    </section>
   );
 }

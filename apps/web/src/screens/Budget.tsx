@@ -354,6 +354,7 @@ export function DeptBudget() {
       {s.me.role !== 'contributor' && <p className="sub" style={{ marginTop: -12, marginBottom: 14 }}><Link className="link" to="/budget">{T('← All departments', '← كل الإدارات')}</Link></p>}
       <DeptHero status={status} deadline={d.cycle.deadline} tab={tab} onTab={setTab}
         readiness={{ study: Object.values(study).filter((x) => x.trim()).length, studyOf: 5, vision: !!plan.vision.trim(), objectives: plan.objectives.length, risks: plan.risks.length, lines: all.length }} />
+      <HowTo first={!d.submission} />
       <ApprovalTracker status={status} history={d.history || []} submittedAt={d.submission?.submittedAt || null} deadline={d.cycle.deadline} revision={d.submission?.revision || 1} />
       {status === 'returned' && d.submission?.reviewComment && <div className="demo" role="note"><b>{T('Returned for changes: ', 'أعيدت للتعديل: ')}</b>{d.submission.reviewComment}</div>}
 
@@ -935,6 +936,8 @@ export function CompanyBudget() {
         <section className="card"><h2>{T('Revenue and costs by city', 'الإيرادات والتكاليف حسب المدينة')}</h2>
           <HBars labels={{ a: T('Revenue', 'الإيرادات'), b: T('Costs', 'التكاليف') }} rows={Object.entries(b.byRegion).map(([c, v]) => ({ id: c, label: rName(c), a: sum(v.revenue), b: sum(v.costs) })).sort((x, y) => (y.a + (y.b || 0)) - (x.a + (x.b || 0)))} /></section>
       </div>
+      <ScenarioStudio b={b} />
+      <KeyRatios b={b} />
       <CompanyHeat b={b} keys={keys} dName={dName} iName={iName} />
       <section className="card" style={{ marginTop: 20 }}>
         <h2>{T('Month by month', 'شهرًا بشهر')}</h2>
@@ -1041,5 +1044,132 @@ function CompanyHeat({ b, keys, dName, iName }: { b: Consolidated; keys: string[
           <HBars rows={vs} labels={{ a: T('Budget a month', 'الميزانية شهريًا'), b: T('Bank history a month', 'التاريخ شهريًا') }} /></section>}
       </div>
     </>
+  );
+}
+
+/**
+ * Scenario studio: move sales volume, selling price, gas cost, payroll and other running costs, and see revenue,
+ * gross profit and EBITDA against the approved budget at once. Goal seek works backward from a target EBITDA margin
+ * to the sales volume it needs, holding everything else as set.
+ */
+function ScenarioStudio({ b }: { b: Consolidated }) {
+  const { lang } = useI18n();
+  const T = (en: string, ar: string) => (lang === 'ar' ? ar : en);
+  const { meta } = useBudgetMeta();
+  const [v, setV] = useState({ volume: 0, price: 0, gas: 0, payroll: 0, other: 0 });
+  // starts one point above the budget's own EBITDA margin, so the first answer is a useful one
+  const [target, setTarget] = useState(() => { const r = sum(b.total.revenue); return r ? Math.round(((b.kpi.ebitda / r) * 100 + 1) * 2) / 2 : 10; });
+  const item = (id: string) => meta?.pack.items.find((x) => x.id === id);
+  const isPayroll = (id: string) => ['P_PAYROLL', 'P_GOSI', 'P_RESIDENTS'].includes(item(id)?.cash || '') || id.startsWith('hr_');
+  const rev = sum(b.total.revenue), gas = sum(b.byItem.filter((x) => x.item === 'pr_gas').map((x) => x.total));
+  const otherCogs = sum(b.total.cogs) - gas;
+  const payroll = sum(b.byItem.filter((x) => x.kind === 'opex' && isPayroll(x.item)).map((x) => x.total));
+  const opexOther = sum(b.total.opex) - payroll, nonc = sum(b.ebitdaNoncash);
+  const calc = (s: typeof v) => {
+    const vol = 1 + s.volume / 100, R = rev * vol * (1 + s.price / 100);
+    // gas and other cost of sales move with volume; gas also with its price
+    const C = gas * vol * (1 + s.gas / 100) + otherCogs * vol;
+    const O = payroll * (1 + s.payroll / 100) + opexOther * (1 + s.other / 100) + nonc;
+    return { R, GP: R - C, E: R - C - O };
+  };
+  const base = calc({ volume: 0, price: 0, gas: 0, payroll: 0, other: 0 }), sc = calc(v);
+  // goal seek: sales volume change that reaches the target EBITDA margin (bisection on -50%..+100%)
+  const seek = (() => {
+    const f = (x: number) => { const r = calc({ ...v, volume: x }); return r.R ? r.E / r.R - target / 100 : -1; };
+    let lo = -50, hi = 100; if (f(lo) * f(hi) > 0) return null;
+    for (let k = 0; k < 60; k++) { const mid = (lo + hi) / 2; if (f(lo) * f(mid) <= 0) hi = mid; else lo = mid; }
+    return (lo + hi) / 2;
+  })();
+  if (!rev) return null;
+  const sliders: Array<[keyof typeof v, string, number, number]> = [
+    ['volume', T('Sales volume', 'حجم المبيعات'), -30, 30], ['price', T('Selling price', 'سعر البيع'), -15, 15], ['gas', T('Gas purchase price', 'سعر شراء الغاز'), -15, 25],
+    ['payroll', T('Payroll', 'الرواتب'), -20, 30], ['other', T('Other running costs', 'المصاريف الأخرى'), -30, 30]
+  ];
+  const bars = [
+    { l: T('Revenue', 'الإيرادات'), a: base.R, b: sc.R }, { l: T('Gross profit', 'مجمل الربح'), a: base.GP, b: sc.GP }, { l: 'EBITDA', a: base.E, b: sc.E }
+  ];
+  const mx = Math.max(1, ...bars.flatMap((x) => [Math.abs(x.a), Math.abs(x.b)]));
+  return (
+    <section className="card sc" style={{ marginTop: 20 }}>
+      <div className="dr-head" style={{ marginTop: 0 }}><div><h2>{T('Scenario studio', 'استوديو السيناريوهات')}</h2>
+        <p className="sub">{T('Move a driver and watch the year change against the approved budget. Volume moves gas and cost of sales with it.', 'حرّك أي محرك وشاهد تغير السنة مقابل الميزانية المعتمدة. الحجم يحرك الغاز وتكلفة المبيعات معه.')}</p></div>
+        <button type="button" className="btn ghost" onClick={() => setV({ volume: 0, price: 0, gas: 0, payroll: 0, other: 0 })}>{T('Back to budget', 'العودة للميزانية')}</button></div>
+      <div className="sc-grid">
+        <div className="sc-sliders">{sliders.map(([k, l, lo, hi]) => (
+          <label key={k} className="sc-sl"><span>{l}<b className={'num ' + (v[k] > 0 ? 'up' : v[k] < 0 ? 'down' : '')}>{v[k] > 0 ? '+' : ''}{v[k]}%</b></span>
+            <input type="range" min={lo} max={hi} step={1} value={v[k]} onChange={(e) => setV({ ...v, [k]: Number(e.target.value) })} /></label>))}
+          <div className="sc-presets">
+            <button type="button" className="pill" onClick={() => setV({ volume: -10, price: 0, gas: 8, payroll: 5, other: 5 })}>{T('Bad year', 'سنة صعبة')}</button>
+            <button type="button" className="pill" onClick={() => setV({ volume: 0, price: 0, gas: 0, payroll: 0, other: 0 })}>{T('Budget', 'الميزانية')}</button>
+            <button type="button" className="pill" onClick={() => setV({ volume: 10, price: 2, gas: -3, payroll: 3, other: 0 })}>{T('Good year', 'سنة جيدة')}</button>
+          </div>
+        </div>
+        <div className="sc-out">
+          {bars.map((x) => <div key={x.l} className="sc-row"><span>{x.l}</span>
+            <span className="sc-bars"><i className="a" style={{ width: (Math.max(0, x.a) / mx) * 100 + '%' }} /><i className="b" style={{ width: (Math.max(0, x.b) / mx) * 100 + '%' }} /></span>
+            <b className="num">{m(x.b)}</b><span className={'num sc-d ' + (x.b - x.a >= 0 ? 'up' : 'down')}>{x.b - x.a >= 0 ? '+' : '−'}{m(Math.abs(x.b - x.a))}</span></div>)}
+          <div className="legend"><span><i style={{ background: 'var(--ink2)' }} />{T('Budget', 'الميزانية')}</span><span><i style={{ background: 'var(--brand)' }} />{T('Scenario', 'السيناريو')}</span></div>
+          <p className="sc-margin">{T('EBITDA margin ', 'هامش EBITDA ')}<b className="num">{base.R ? ((base.E / base.R) * 100).toFixed(1) : '0'}%</b> → <b className="num">{sc.R ? ((sc.E / sc.R) * 100).toFixed(1) : '0'}%</b></p>
+          <div className="sc-seek"><label>{T('Goal seek: target EBITDA margin', 'البحث عن الهدف: هامش EBITDA المستهدف')} <input type="number" step={0.5} value={target} onChange={(e) => setTarget(Number(e.target.value) || 0)} />%</label>
+            <p>{seek === null ? T('Not reachable by volume alone at these settings: change price or costs.', 'لا يمكن بلوغه بالحجم وحده بهذه الإعدادات: غيّر السعر أو التكاليف.')
+              : T(`Needs sales volume ${seek >= 0 ? '+' : ''}${seek.toFixed(1)}% against budget (revenue ${m(calc({ ...v, volume: seek }).R)}).`, `يحتاج حجم مبيعات ${seek >= 0 ? '+' : ''}${seek.toFixed(1)}% مقابل الميزانية (إيرادات ${m(calc({ ...v, volume: seek }).R)}).`)}</p></div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** The ratios a finance director reads first, from the budget, each against a typical range for a gas distributor. */
+function KeyRatios({ b }: { b: Consolidated }) {
+  const { lang } = useI18n();
+  const T = (en: string, ar: string) => (lang === 'ar' ? ar : en);
+  const { meta } = useBudgetMeta();
+  const item = (id: string) => meta?.pack.items.find((x) => x.id === id);
+  const byCash = (codes: string[]) => sum(b.byItem.filter((x) => x.kind !== 'revenue' && codes.includes(item(x.item)?.cash || '')).map((x) => x.total));
+  const R = sum(b.total.revenue);
+  if (!R) return null;
+  const pct = (x: number) => (x / R) * 100;
+  const rows = [
+    { l: T('Gross margin', 'هامش الربح الإجمالي'), v: pct(R - sum(b.total.cogs)), lo: 8, hi: 25, good: 'high' },
+    { l: T('EBITDA margin', 'هامش EBITDA'), v: pct(b.kpi.ebitda), lo: 3, hi: 12, good: 'high' },
+    { l: T('Gas cost to revenue', 'تكلفة الغاز إلى الإيرادات'), v: pct(sum(b.byItem.filter((x) => x.item === 'pr_gas').map((x) => x.total))), lo: 75, hi: 92, good: 'low' },
+    { l: T('Payroll to revenue', 'الرواتب إلى الإيرادات'), v: pct(byCash(['P_PAYROLL', 'P_GOSI', 'P_RESIDENTS'])), lo: 2, hi: 6, good: 'low' },
+    { l: T('Rent to revenue', 'الإيجارات إلى الإيرادات'), v: pct(byCash(['P_RENT'])), lo: 0.5, hi: 3, good: 'low' },
+    { l: T('Fleet and fuel to revenue', 'الأسطول والوقود إلى الإيرادات'), v: pct(byCash(['P_DIESEL', 'P_STAFF'])), lo: 0.5, hi: 3, good: 'low' },
+    { l: T('Running costs to revenue', 'المصاريف التشغيلية إلى الإيرادات'), v: pct(sum(b.total.opex)), lo: 4, hi: 12, good: 'low' },
+    { l: T('Capex to revenue', 'الرأسمالية إلى الإيرادات'), v: pct(sum(b.total.capex)), lo: 0.5, hi: 4, good: 'mid' }
+  ];
+  return (
+    <section className="card kr" style={{ marginTop: 20 }}>
+      <h2>{T('Key ratios', 'النسب الرئيسية')}</h2>
+      <p className="sub">{T('From the budget, against a typical range for a Saudi gas distributor (shaded). Outside the range is worth a question, not automatically wrong.', 'من الميزانية مقابل النطاق المعتاد لموزع غاز في السعودية (المظلل). الخروج عن النطاق يستحق سؤالًا وليس خطأً بالضرورة.')}</p>
+      <ul className="kr-list">{rows.map((r) => {
+        const top = Math.max(r.hi * 1.6, r.v * 1.1, 1), pos = Math.min(100, (r.v / top) * 100), inR = r.v >= r.lo && r.v <= r.hi;
+        return <li key={r.l}><span className="kr-l">{r.l}</span>
+          <span className="kr-track"><i className="kr-band" style={{ insetInlineStart: (r.lo / top) * 100 + '%', width: ((r.hi - r.lo) / top) * 100 + '%' }} /><i className={'kr-dot ' + (inR ? 'ok' : 'off')} style={{ insetInlineStart: `calc(${pos}% - 7px)` }} /></span>
+          <b className={'num ' + (inR ? '' : 'warn-t')}>{r.v.toFixed(1)}%</b><span className="sub kr-r">{r.lo}–{r.hi}%</span></li>;
+      })}</ul>
+    </section>
+  );
+}
+
+/** A short guide for the department head: what to do, in order, and what the owner looks for. Open on a first visit. */
+function HowTo({ first }: { first: boolean }) {
+  const { lang } = useI18n();
+  const T = (en: string, ar: string) => (lang === 'ar' ? ar : en);
+  const [open, setOpen] = useState(first);
+  const steps: Array<[string, string]> = [
+    [T('Study', 'الدراسة'), T('Write at least three of the five sections: where you are today, what changes next year, risks. The owner reads this before the numbers.', 'اكتب ثلاثة على الأقل من الأقسام الخمسة: أين أنت اليوم وما الذي سيتغير العام القادم والمخاطر. يقرؤها المالك قبل الأرقام.')],
+    [T('Plan', 'الخطة'), T('Set the vision and at least one objective with a KPI and a target, for example "cut fuel per trip 5%".', 'حدد الرؤية وهدفًا واحدًا على الأقل مع مؤشر ومستهدف، مثل "خفض الوقود لكل رحلة 5%".')],
+    [T('Budget', 'الميزانية'), T('Press "Start from guidance" to begin from the bank history, then change each line. Choose Whole company or a city; use "Split across cities" when each city differs. Add missing items from "+ Add a line".', 'اضغط "ابدأ من الإرشاد" للبدء من تاريخ البنك ثم عدّل كل سطر. اختر الشركة كاملة أو مدينة؛ واستخدم "وزّع على المدن" عند اختلاف المدن. أضف البنود الناقصة من "+ إضافة سطر".')],
+    [T('Check the report', 'راجع التقرير'), T('Open Report: every item more than 10% away from history is flagged. Explain each one in the study.', 'افتح التقرير: كل بند يبتعد أكثر من 10% عن التاريخ مُعلَّم. اشرح كل واحد في الدراسة.')],
+    [T('Submit', 'التسليم'), T('Save, then "Submit for approval". Follow it in "Approval request" above; if it comes back, read the comment, change and submit again.', 'احفظ ثم "تسليم للاعتماد". تابعه في "طلب الاعتماد"؛ وإن أُعيد اقرأ الملاحظة وعدّل وسلّم مجددًا.')]
+  ];
+  return (
+    <section className="card howto" style={{ marginTop: 16 }}>
+      <button type="button" className="howto-h" onClick={() => setOpen(!open)} aria-expanded={open}><b>{T('How to prepare your budget', 'كيف تعدّ ميزانيتك')}</b><span>{open ? '−' : '+'}</span></button>
+      {open && <ol className="howto-steps">{steps.map(([h, b], i) => <li key={i}><i>{i + 1}</i><div><b>{h}</b><p>{b}</p></div></li>)}
+        <li className="tip"><i>✓</i><div><b>{T('Amounts', 'المبالغ')}</b><p>{T('SAR a month, excluding VAT. Only your own department is visible to you.', 'بالريال شهريًا وبدون ضريبة. لا ترى إلا إدارتك.')}</p></div></li></ol>}
+    </section>
   );
 }
